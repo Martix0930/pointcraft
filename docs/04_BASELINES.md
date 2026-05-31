@@ -5,10 +5,13 @@ Baselines give a floor to beat and a sanity check on the data contract. They are
 
 ## M1 — Deterministic baseline
 
-The earlier project phase (legacy `pointcraft/` package at repo root) already
-implements a deterministic LiDAR → voxel → output pipeline. It is the reference
-M1 baseline: whatever a learned model produces should beat this on completion
-metrics, especially in unobserved regions.
+The earlier project phase implements a deterministic LiDAR → voxel → output
+pipeline. It has been merged into **`src/pointcraft/baseline/`** (stages in
+`baseline/stages.py`, driven by `pointcraft.pipeline`; LOD2 parsing in
+`pointcraft.data.lod2`, block palette in `pointcraft.mc_export.palette`, viewer in
+`pointcraft.utils.viewer`). It is the reference M1 baseline: whatever a learned
+model produces should beat this on completion metrics, especially in unobserved
+regions. The example runner is `scripts/tokyo_station.py`.
 
 Key property: it can only reproduce **observed** structure plus simple geometric
 fills — by construction it cannot recover genuinely unobserved facades/volumes.

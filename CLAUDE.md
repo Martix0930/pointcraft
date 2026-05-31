@@ -21,7 +21,7 @@ then instantiate the result as an embodied interactive environment (Minecraft).
 
 ## Repository as shared memory
 
-This repo is the **single source of truth** shared between Claude App (research
+This repo is the **single source of truth** shared between Claude Chat (research
 planning) and Claude Code (implementation). Chat history is NOT the source of
 truth — the docs and task specs are. Future sessions must be able to work from
 small task specs, not long chat logs.
@@ -30,11 +30,14 @@ small task specs, not long chat logs.
 
 - `docs/` — stable project knowledge (brief, research question, data contract, etc.).
 - `tasks/M*/` — per-milestone work units: `TASK_SPEC.md`, `ACCEPTANCE.md`, `CHECKLIST.md`, `SESSION_LOG.md`.
-- `src/pointcraft/` — **new research code** (data, voxelization, models, losses, metrics, mc_export, utils).
-- `pointcraft/` (repo root, legacy) — the **M1 deterministic pipeline** from the
-  earlier phase. Treat it as the baseline reference. Do not refactor it unless a
-  task explicitly says so. (Naming overlap with `src/pointcraft` is known and logged in `docs/06_DECISIONS.md`.)
+- `src/pointcraft/` — **the only importable `pointcraft` package** (data, voxelization, models, losses, metrics, mc_export, utils). Install with `pip install -e .`.
+- `src/pointcraft/baseline/` — the **M1 deterministic pipeline** (merged from the
+  former repo-root `pointcraft/` package). Treat it as the baseline reference; do
+  not refactor it unless a task explicitly says so.
+- `src/pointcraft/pipeline.py` — Context / Stage / Pipeline core (was `context.py`).
 - `scripts/`, `configs/`, `tests/`, `experiments/`, `outputs/` — see each folder's README.
+
+> Naming: code/package/import/path = lowercase `pointcraft`; human-facing prose = `PointCraft`. Never rename the package dir to `src/PointCraft/`. See `docs/07_GOTCHAS.md`.
 
 ## Rules for Claude Code
 

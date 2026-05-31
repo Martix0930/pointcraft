@@ -3,9 +3,9 @@ import os
 import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(HERE)
-sys.path.insert(0, REPO)
+sys.path.insert(0, os.path.join(REPO, "src"))
 
-from pointcraft.lod2 import parse_obj, parse_mtl
+from pointcraft.data.lod2 import parse_obj, parse_mtl
 
 tile_dir = r"D:\Desktop\实习\三维GIS\LOD2\53394611"
 obj_files = [f for f in os.listdir(tile_dir) if f.endswith(".obj")]

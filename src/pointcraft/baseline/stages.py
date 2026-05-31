@@ -11,9 +11,9 @@ import laspy
 import mcschematic
 from scipy import ndimage
 
-from .context import Context, Stage, log
-from .lod2 import LOD2Rasterizer
-from .palette import BlockPalette
+from ..pipeline import Context, Stage, log
+from ..data.lod2 import LOD2Rasterizer
+from ..mc_export.palette import BlockPalette
 
 
 # ============================================================

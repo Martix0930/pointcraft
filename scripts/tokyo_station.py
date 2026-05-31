@@ -13,13 +13,14 @@ import argparse
 import os
 import sys
 
-# Allow running from anywhere by adding repo root to sys.path
+# Allow running from anywhere by adding the package source dir to sys.path
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(HERE)
-sys.path.insert(0, REPO)
+sys.path.insert(0, os.path.join(REPO, "src"))
 
-from pointcraft import Context, Pipeline, save_context, load_context, Viewer
-from pointcraft.stages import (
+from pointcraft.pipeline import Context, Pipeline
+from pointcraft.utils.viewer import Viewer, save_context, load_context
+from pointcraft.baseline.stages import (
     LoadLas, DropNoiseClass, PercentileZClip,
     Voxelize, MinSupportFilter, LocalHeightOutlier,
     FillSingleStepHoles, MorphologicalClose, RemoveSmallComponents,

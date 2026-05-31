@@ -3,7 +3,7 @@
 Work through in order. Check off as completed; keep notes inline.
 
 - [ ] **Inspect existing data** — confirm LiDAR + LOD2 files, CRS, bounds, units;
-      note what the legacy `pointcraft/` package already provides for reuse.
+      note what `src/pointcraft/baseline/` already provides for reuse.
 - [ ] **Define coordinate system** — fix world axes, `origin`, `voxel_size`, and
       the z-reference (absolute vs. height-above-ground); record in data contract if changed.
 - [ ] **Implement voxel grid** — grid object + world↔index transforms (shared by

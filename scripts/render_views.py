@@ -11,12 +11,12 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(HERE)
-sys.path.insert(0, REPO)
+sys.path.insert(0, os.path.join(REPO, "src"))
 
 import numpy as np
 import pyvista as pv
 
-from pointcraft.viewer import load_context, expand_voxels, COLOR_MODES
+from pointcraft.utils.viewer import load_context, expand_voxels, COLOR_MODES
 
 
 def render(ctx_dict, mode_idx, out_dir, tag):

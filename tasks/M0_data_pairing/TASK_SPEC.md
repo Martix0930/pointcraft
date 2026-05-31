@@ -12,7 +12,8 @@ This milestone is **data engineering only**. No learning.
 
 - `CLAUDE.md`
 - `docs/00_PROJECT_BRIEF.md`, `docs/02_DATA_CONTRACT.md`
-- Legacy pipeline in repo-root `pointcraft/` already has LiDAR loading,
+- Baseline pipeline in `src/pointcraft/baseline/stages.py` (with
+  `pointcraft.data.lod2`, `pointcraft.pipeline`) already has LiDAR loading,
   voxelization, and LOD2/LAS CRS alignment — **reuse, do not rewrite**.
 
 ## Deliverables
@@ -52,7 +53,7 @@ This milestone is **data engineering only**. No learning.
 - ❌ No spconv / Minkowski / torch.
 - ❌ No semantic *learning* (only deterministic label assignment from sources).
 - ❌ No Minecraft export beyond an optional debug preview.
-- ❌ No refactoring of the legacy `pointcraft/` package beyond what's needed to reuse it.
+- ❌ No refactoring of `src/pointcraft/baseline/` beyond what's needed to reuse it.
 
 ## Suggested layout
 

@@ -11,7 +11,8 @@ the floor that M2+ must beat, especially in unobserved regions.
 
 ## Scope
 
-- Reuse the legacy `pointcraft/` deterministic pipeline.
+- Reuse the deterministic pipeline now at `src/pointcraft/baseline/` (stages in
+  `baseline/stages.py`, driven by `pointcraft.pipeline`).
 - Add: naive roof-extrusion fill and/or rule-based building volume fill.
 - Emit predictions on the M0 grid; compute occupancy IoU (+ unobserved-region IoU).
 

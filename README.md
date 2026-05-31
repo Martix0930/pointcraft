@@ -43,8 +43,8 @@ pointcraft/
 ├─ pyproject.toml         # minimal Python project config
 ├─ docs/                  # stable project knowledge (numbered)
 ├─ tasks/M0..M5/          # per-milestone task specs + session logs
-├─ src/pointcraft/        # new research code (data, voxelization, models, ...)
-├─ pointcraft/            # legacy deterministic pipeline (M1 baseline reference)
+├─ src/pointcraft/        # the only importable package (data, voxelization, models, ...)
+│  └─ baseline/           # legacy deterministic pipeline = M1 baseline
 ├─ scripts/               # entry-point scripts
 ├─ configs/               # experiment configs
 ├─ tests/                 # tests
@@ -52,10 +52,10 @@ pointcraft/
 └─ outputs/               # generated artifacts (gitignored)
 ```
 
-> Note: the original phase of this project lives in `pointcraft/` (repo root) and
-> serves as the **M1 deterministic baseline**. New research code goes in
-> `src/pointcraft/`. The package-name overlap is intentional for now and logged in
-> `docs/06_DECISIONS.md`.
+> Note: there is a single importable package, `pointcraft`, living in `src/`. The
+> original deterministic pipeline has been merged into `src/pointcraft/baseline/`
+> and serves as the **M1 deterministic baseline**. (Naming convention and the
+> merge are logged in `docs/06_DECISIONS.md`.) Install with `pip install -e .`.
 
 ## Working with Claude App and Claude Code
 
