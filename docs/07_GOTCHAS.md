@@ -39,6 +39,16 @@ Practical traps to avoid. Add entries as they bite.
   skimage) are imported **inside** submodules, not at package top level.
 - Learning libs (torch / spconv / Minkowski) are **not** installed before M2.
 
+## Test data
+
+- `test_data/` is for **tiny fixtures only** (synthetic / heavily reduced).
+- **Do not commit real datasets** (LiDAR/PLATEAU/CityGML/large OBJ) or **generated
+  training samples** (`.npz`/`.npy`). Those are globally gitignored and must stay
+  outside git or in ignored local folders.
+- `.obj` is globally ignored; tiny fixtures are re-included only via the
+  `!test_data/**/*.obj` rule in `.gitignore`. Do not add `!test_data/**/*.npz`
+  exceptions unless a tiny `.npz` fixture is intentionally created.
+
 ## Windows
 
 - Git may warn `LF will be replaced by CRLF` — harmless.

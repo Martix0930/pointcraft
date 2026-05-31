@@ -51,3 +51,15 @@ Thumbs.db
 
 # Keep
 !experiments/README.md
+
+# Tiny committed test fixtures (allow small files under test_data/ only).
+# Real/large datasets stay ignored by the patterns above; these negations
+# re-include only the tiny synthetic fixtures.
+!test_data/
+!test_data/**/
+!test_data/**/*.obj
+!test_data/**/*.csv
+!test_data/**/*.json
+!test_data/**/*.md
+# NOTE: do NOT add !test_data/**/*.npz or *.npy unless such tiny fixtures
+# are intentionally created — generated training samples must stay ignored.

@@ -53,8 +53,21 @@ small task specs, not long chat logs.
 7. Keep dependencies minimal; heavy libs (torch, spconv, MinkowskiEngine, Open3D,
    PDAL) are optional and introduced only when their milestone needs them.
 
+## Test data policy
+
+- `test_data/` stores **tiny, committed fixtures** for tests and smoke runs.
+- Only **minimal synthetic or heavily reduced** data should be committed.
+- **Large raw datasets must not be committed.**
+- Real LiDAR, PLATEAU, CityGML, OBJ, NPZ, checkpoints, and generated outputs must
+  stay outside git or under ignored local folders.
+- Tests should prefer `test_data/` fixtures over ad-hoc local paths.
+- Every new fixture must include a short `README.md` explaining: what it
+  represents, the expected coordinate system, the expected voxel size / bounds,
+  and which tests use it.
+
 ## Current status
 
 - Research direction locked (Aerial-to-Embodied Semantic Scene Completion).
-- Repository scaffolding created.
+- Repository scaffolding created; legacy pipeline merged into `src/pointcraft/`.
+- `test_data/` tiny fixtures added (voxel-grid + data-pairing).
 - **Next: M0 data pairing.** See `tasks/M0_data_pairing/`.

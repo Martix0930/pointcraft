@@ -1,0 +1,27 @@
+# Tiny synthetic LOD2 building: axis-aligned cube x[1,3] y[1,3] z[0,3].
+# Complete target geometry for the m0_data_pairing fixture. Plain geometry
+# (no materials / UVs) — for voxelization smoke tests only.
+o tiny_cube
+v 1.0 1.0 0.0
+v 3.0 1.0 0.0
+v 3.0 3.0 0.0
+v 1.0 3.0 0.0
+v 1.0 1.0 3.0
+v 3.0 1.0 3.0
+v 3.0 3.0 3.0
+v 1.0 3.0 3.0
+# bottom (z=0)
+f 1 2 3
+f 1 3 4
+# top / roof (z=3)
+f 5 6 7
+f 5 7 8
+# sides
+f 1 2 6
+f 1 6 5
+f 2 3 7
+f 2 7 6
+f 3 4 8
+f 3 8 7
+f 4 1 5
+f 4 5 8

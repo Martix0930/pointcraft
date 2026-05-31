@@ -1,0 +1,12 @@
+{
+  "_comment": "Expected .npz metadata block for this synthetic tile (see docs/02_DATA_CONTRACT.md). Synthetic local frame, not a real CRS.",
+  "tile_id": "tiny_synthetic_0",
+  "voxel_size": 1.0,
+  "origin": [0.0, 0.0, 0.0],
+  "bounds": [0.0, 0.0, 0.0, 4.0, 4.0, 4.0],
+  "grid_shape": [4, 4, 4],
+  "crs": "LOCAL_SYNTHETIC",
+  "source_files": ["tiny_lidar_points.csv", "tiny_lod2_cube.obj"],
+  "dataset_version": "v0.1",
+  "feature_layout": ["intensity", "classification"]
+}

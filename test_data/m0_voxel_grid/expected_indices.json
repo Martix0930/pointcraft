@@ -1,0 +1,11 @@
+{
+  "_comment": "Expected voxel index per point id, idx = floor((xyz - origin)/voxel_size), origin=[0,0,0], voxel_size=1.0. Boundary coords map up (floor(1.0)=1).",
+  "indices": {
+    "0": [0, 0, 0],
+    "1": [1, 0, 0],
+    "2": [1, 0, 3],
+    "3": [3, 3, 3],
+    "4": [2, 2, 2],
+    "5": [0, 2, 1]
+  }
+}

@@ -48,9 +48,13 @@ pointcraft/
 ├─ scripts/               # entry-point scripts
 ├─ configs/               # experiment configs
 ├─ tests/                 # tests
+├─ test_data/             # tiny committed fixtures for tests / smoke runs
 ├─ experiments/           # experiment runs
 └─ outputs/               # generated artifacts (gitignored)
 ```
+
+> `test_data/` holds only tiny synthetic / reduced fixtures (see "Test data
+> policy" in `CLAUDE.md`). Real or large datasets are never committed.
 
 > Note: there is a single importable package, `pointcraft`, living in `src/`. The
 > original deterministic pipeline has been merged into `src/pointcraft/baseline/`

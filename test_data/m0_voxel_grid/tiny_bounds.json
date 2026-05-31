@@ -1,0 +1,8 @@
+{
+  "_comment": "Synthetic local frame (meters), x=east y=north z=up. grid_shape = ceil((bounds_max - origin)/voxel_size).",
+  "crs": "LOCAL_SYNTHETIC",
+  "origin": [0.0, 0.0, 0.0],
+  "voxel_size": 1.0,
+  "bounds": [0.0, 0.0, 0.0, 4.0, 4.0, 4.0],
+  "grid_shape": [4, 4, 4]
+}
