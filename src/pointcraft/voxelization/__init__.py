@@ -2,3 +2,6 @@
 
 The same grid is used for both partial input and complete target. (M0)
 """
+from .grid import VoxelGrid
+
+__all__ = ["VoxelGrid"]
