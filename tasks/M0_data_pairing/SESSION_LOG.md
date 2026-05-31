@@ -5,7 +5,7 @@ Append a dated entry at the end of every session. Keep the "Current status" and
 
 ---
 
-## Current status: **IN PROGRESS** — M0-1 (voxel grid) done; next is M0-2 (LiDAR → partial occupancy)
+## Current status: **IN PROGRESS** — Phase A (decisions D1–D4 + data contract) locked; M0-1 (voxel grid) done; next is Phase B (inventory & verify) then M0-2 (LiDAR → partial occupancy)
 
 Package layout standardized: `src/pointcraft/` is the single importable
 `pointcraft` package. Baseline reusable code at `src/pointcraft/baseline/` +
@@ -90,3 +90,21 @@ Package layout standardized: `src/pointcraft/` is the single importable
 - Also (separate commit) externalized baseline data paths to
   `configs/tokyo_station.yaml` + `pointcraft.utils.config`.
 - Installed `pytest` (dev) to run tests. No neural network.
+
+### 2026-06-01 — M0 Phase A: lock decisions + finalize data contract (docs only)
+
+- Logged the four M0 decisions in `docs/06_DECISIONS.md`:
+  - **D1** voxel edge length = 1.0 m.
+  - **D2** building target geometry = **shell** (surface voxels only; class `2`
+    building-solid is unused).
+  - **D3** vertical reference = **absolute elevation**, shared origin, no DTM.
+  - **D4** `observed_mask` / `unobserved_mask` **promoted to required** M0 fields.
+- Finalized `docs/02_DATA_CONTRACT.md` for `dataset_version = v0.1`: status
+  flipped from "proposed" to finalized; masks moved Optional → required with exact
+  derivations; `occ_target` clarified (all-1, occupied-only); shell semantics for
+  `coords_target`; `voxel_size` default 1.0; z = absolute elevation; semantic label
+  table finalized (class 2 unused under shell); pinned
+  `feature_layout = ["height", "point_count"]` (C=2).
+- **No implementation code changed** in this phase (per Phase A scope).
+- Next: **Phase B** — inventory legacy `pointcraft` pkg, inspect real data, and
+  verify vertical (z) alignment on one building before writing voxelization code.

@@ -4,7 +4,8 @@ This defines the **planned** on-disk format for paired voxel training samples
 produced by M0. One `.npz` file = one tile sample. This contract is the interface
 between M0 (data pairing) and M2+ (learning).
 
-> Status: **proposed**. May be revised during M0; log changes in `docs/06_DECISIONS.md`.
+> Status: **finalized for `dataset_version = v0.1`** (M0 decisions D1–D4 locked in
+> `docs/06_DECISIONS.md`). Further changes require bumping `dataset_version`.
 
 ## `.npz` fields
 
@@ -12,26 +13,40 @@ between M0 (data pairing) and M2+ (learning).
 |-------|-------|-------|---------|
 | `coords_partial` | int32 | `[N, 3]` | Voxel indices `(i, j, k)` that are **observed** (occupied by the partial LiDAR input). |
 | `feats_partial`  | float32 | `[N, C]` | Per-observed-voxel features (see feature layout). `C` fixed per dataset version. |
-| `coords_target`  | int32 | `[M, 3]` | Voxel indices for the **complete** target (the supervision set; typically the union of all target-occupied voxels). |
-| `occ_target`     | uint8 | `[M]` | Occupancy label per `coords_target` entry (`1` occupied, `0` free if explicitly stored). |
-| `sem_target`     | int64 | `[M]` | Semantic class id per `coords_target` entry (see label table). `-1` / `ignore_index` for unknown. |
-| `observed_mask`  | uint8 | `[M]` | Optional. `1` if this target voxel was directly observed by the partial input. |
-| `unobserved_mask`| uint8 | `[M]` | Optional. `1` if this target voxel was **never** observed (the completion region). Usually `1 - observed_mask` within occupied target. |
+| `coords_target`  | int32 | `[M, 3]` | Voxel indices for the **complete** target. Under the **shell** representation (D2) these are the LOD2/mesh *surface* voxels — no interior fill. |
+| `occ_target`     | uint8 | `[M]` | Occupancy label per `coords_target` entry. Every stored target voxel is occupied, so this is `1` for all `M` entries in v0.1 (free voxels are not stored). |
+| `sem_target`     | int64 | `[M]` | Semantic class id per `coords_target` entry (see label table). `255` (`ignore_index`) for unknown. |
+| `observed_mask`  | uint8 | `[M]` | **Required** (D4). `1` if this target voxel was directly observed by the partial input (`coords_target ∈ coords_partial`). |
+| `unobserved_mask`| uint8 | `[M]` | **Required** (D4). `1` if this target voxel was **never** observed (the completion region). Equals `occupied_target ∧ ¬observed`, i.e. `1 - observed_mask` over the occupied target. |
 | `metadata`       | (see below) | — | Saved as a 0-d object array or sidecar JSON. |
 
 Notes:
 - Sparse storage (coordinate lists) is preferred over dense grids for memory.
 - `feats_partial` column count `C` and column order are fixed by the dataset
   version string in `metadata` and documented in the feature layout below.
-- `observed_mask` / `unobserved_mask` enable the M4 unobserved-region metrics; if
-  not stored, they can be recomputed from `coords_partial` ∩ `coords_target`.
+- `observed_mask` / `unobserved_mask` enable the M4 unobserved-region metrics.
+  Per D4 they are **required** in v0.1 and computed in M0 while partial and target
+  share one grid in a single pass — not recomputed downstream (a later
+  intersection corrupts the headline metric on boundary near-misses).
+
+### Feature layout (`dataset_version = v0.1`)
+
+`feature_layout = ["height", "point_count"]` (`C = 2`):
+
+| col | name | meaning | aggregation |
+|-----|------|---------|-------------|
+| 0 | `height` | representative world-z of the LiDAR points merged into the voxel | mean of point z |
+| 1 | `point_count` | number of LiDAR points merged into the voxel | count |
+
+Minimal and expandable: intensity, return number, and normals are deferred to a
+later `dataset_version`, not added in v0.1.
 
 ## `metadata` fields
 
 | Key | Type | Meaning |
 |-----|------|---------|
 | `tile_id` | str | Unique tile identifier. |
-| `voxel_size` | float | Edge length of a voxel in world units (meters). |
+| `voxel_size` | float | Edge length of a voxel in world units (meters). **Default `1.0` (D1).** |
 | `origin` | float[3] | World coordinate of voxel index `(0,0,0)` corner. |
 | `bounds` | float[6] | `[xmin, ymin, zmin, xmax, ymax, zmax]` world bounds of the grid. |
 | `grid_shape` | int[3] | `(I, J, K)` voxel-grid dimensions. |
@@ -58,21 +73,22 @@ Notes:
 - Duplicate points mapping to the same voxel are merged (occupancy = OR; features
   aggregated, e.g. mean/min/max — specify in feature layout).
 
-## Semantic label table (placeholder)
+## Semantic label table (`dataset_version = v0.1`)
 
-> Provisional. Finalize during M0 once LOD2 semantic granularity is confirmed.
+> Finalized for v0.1 under the **shell** target (D2): a building is its surface
+> voxels (`roof` + `facade`), so the building-*solid* class `2` is **unused**.
 
-| id | name | source |
-|----|------|--------|
-| 0 | free / empty | (only if storing free voxels) |
-| 1 | ground | LiDAR class + LOD terrain |
-| 2 | building | LOD2 building solid |
-| 3 | roof | LOD2 roof surface |
-| 4 | facade / wall | LOD2 wall surface |
-| 5 | vegetation | LiDAR class (low/high veg) |
-| 6 | road | OSM / LiDAR (optional) |
-| 7 | water | optional |
-| 255 | ignore / unknown | unlabeled |
+| id | name | source | v0.1 status |
+|----|------|--------|-------------|
+| 0 | free / empty | (only if storing free voxels; v0.1 stores occupied only) | unused |
+| 1 | ground | LiDAR class + LOD terrain | active |
+| 2 | building (solid interior) | LOD2 building solid | **unused** (shell target, D2) |
+| 3 | roof | LOD2 roof surface | active |
+| 4 | facade / wall | LOD2 wall surface | active |
+| 5 | vegetation | LiDAR class (low/high veg) | active if available |
+| 6 | road | OSM / LiDAR | optional |
+| 7 | water | optional | optional |
+| 255 | ignore / unknown | unlabeled | `ignore_index` |
 
 ## Alignment rules (LiDAR ↔ LOD2)
 
@@ -81,9 +97,10 @@ Notes:
 2. **Shared grid.** `coords_partial` and `coords_target` MUST use the **same**
    `origin`, `voxel_size`, and `grid_shape`. The grid is defined once per tile and
    reused for both input and target.
-3. **Ground reference.** Define `z` consistently (absolute elevation vs.
-   height-above-ground). If using height-above-ground, store the ground model in
-   `metadata` or document the offset.
+3. **Ground reference.** `z` is **absolute elevation** (D3), with a single shared
+   origin for partial and target. No DTM / height-above-ground model in v0.1;
+   adopting height-above-ground later means recomputing `z` and bumping
+   `dataset_version` (document the offset in `metadata`).
 4. **Tile extent.** Tile bounds derive from the LiDAR coverage; LOD2 is clipped to
    the same bounds.
 5. **Sanity check.** A target building's footprint must overlap the observed roof
