@@ -1,0 +1,53 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+
+# Environments
+.venv/
+venv/
+.env
+
+# Outputs / artifacts
+outputs/*
+!outputs/.gitkeep
+output/
+experiments/*/outputs/
+*.schem
+*.litematic
+
+# Data files (large / raw)
+*.las
+*.laz
+*.ply
+*.e57
+*.obj
+*.mtl
+*.npz
+*.npy
+data/
+raw/
+raw_data/
+
+# Model checkpoints & training logs
+*.ckpt
+*.pth
+*.pt
+checkpoints/
+wandb/
+runs/
+tb_logs/
+tensorboard/
+lightning_logs/
+
+# Editor / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Keep
+!experiments/README.md

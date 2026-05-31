@@ -1,0 +1,14 @@
+name: pointcraft
+channels:
+  - conda-forge
+dependencies:
+  - python=3.12
+  - pip
+  - pip:
+      - laspy>=2.5
+      - numpy>=1.26
+      - scipy>=1.11
+      - scikit-image>=0.22
+      - pillow>=10
+      - mcschematic>=11.4
+      - pyvista>=0.43

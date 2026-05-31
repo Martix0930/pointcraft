@@ -1,0 +1,44 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pointcraft"
+version = "0.1.0"
+description = "Aerial-to-Embodied Semantic Scene Completion: complete urban voxel occupancy + semantics from aerial point clouds, instantiated in Minecraft."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "PointCraft" }]
+
+# Keep core dependencies minimal for M0 (no learning libs yet).
+dependencies = [
+    "numpy>=1.24",
+    "scipy>=1.10",
+    "laspy>=2.5",
+]
+
+[project.optional-dependencies]
+# Visualization / debug preview (M0-M1).
+viz = [
+    "pyvista>=0.43",
+    "Pillow>=10.0",
+    "scikit-image>=0.22",
+]
+# Minecraft export (M5; usable for debug preview earlier).
+mc = [
+    "mcschematic>=1.2",
+]
+# Learning stack — DO NOT install before M2. Introduced per task spec.
+#   torch, spconv (or MinkowskiEngine / torchsparse), pytorch-lightning
+# Heavy geo stack — introduced only if a task needs it.
+#   open3d, pdal, citygml4j (Java)
+dev = [
+    "pytest>=7.4",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
