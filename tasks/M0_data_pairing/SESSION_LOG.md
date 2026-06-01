@@ -328,9 +328,14 @@ genuine blind spots:
   M4 denominator). **Genuine blind region ≈ the facades (~40 % of target), not
   76 %.**
 
-**Action taken:** added `scripts/export_alignment_3d.py` → exports raw LiDAR
-(height-coloured) + LOD2 roof(red)/facade(blue) surface samples as 3 overlaying
-PLYs (`outputs/m0/align3d/`, git-ignored) for manual CloudCompare/MeshLab review.
+**Action taken:** added two QA exporters (PLY, git-ignored under
+`outputs/m0/align3d/`): `scripts/export_alignment_3d.py` (whole tile: raw LiDAR
+height-coloured + LOD2 roof-red/facade-blue) and `scripts/export_buildings.py`
+(per-building, NMS + per-height-band quota so the sample spans skyscraper/tall/
+midrise/low, not just one landmark; tags point-sparse coverage-edge towers
+`_SPARSEpts`). Both are source geometry (no voxelization) for manual
+CloudCompare/MeshLab review. Real tile: dense-coverage mid/low-rise are the clean
+alignment checks; the ~160 m towers are point-sparse (swath-edge coverage gap).
 **No labelling logic changed yet** — `compute_masks`/`target` left as-is pending
 the human verdict. Candidate fixes (z-tolerance, coverage clip) are on hold.
 Once verified, log the decision in `docs/06_DECISIONS.md` and bump
