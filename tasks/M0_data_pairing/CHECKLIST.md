@@ -29,7 +29,9 @@ Work through in order. Check off as completed; keep notes inline.
       allow_pickle). `compute_masks` derives required observed/unobserved masks
       (D4); `build_metadata` assembles the metadata block. Tests in
       `tests/test_sample_io.py` (4 passing, end-to-end on fixture). **(M0-4 done)**
-- [ ] **Write tests** — round-trip, grid-equality, alignment regression.
+- [x] **Write tests** — round-trip (`test_voxel_grid.py`), grid-equality +
+      building-footprint/observed-roof alignment + end-to-end run_m0 npz load
+      (`test_pairing_alignment.py`). Full suite **28 passing**. **(Phase D done)**
 - [x] **Sanity visualization** — `scripts/run_m0.py --viz` saves a 1×3 matplotlib
       figure (partial top-down height, target top-down semantic, vertical slice
       showing shell/partial/UNobserved facade). Eyeballed on fixture + real tile;
