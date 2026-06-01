@@ -18,8 +18,12 @@ Work through in order. Check off as completed; keep notes inline.
       (logged), merges duplicates. Tests in `tests/test_partial_occupancy.py`
       (7 passing, fixture-driven). Real-LAS smoke: 1.75M pts → 96,264 voxels.
       **(M0-2 done)**
-- [ ] **Implement target occupancy** — LOD2/mesh → `coords_target`, `occ_target`,
-      `sem_target` on the same grid.
+- [x] **Implement target occupancy** — `pointcraft.data.voxelize_target`
+      (+ `load_lod2_meshes`): LOD2 surface **shell** (D2) → `coords_target`
+      (int32), `occ_target` (uint8 all-1), `sem_target` (int64, roof=3/facade=4
+      by face-normal |n_z|≥0.7, majority vote, ties→roof). Tests in
+      `tests/test_target_occupancy.py` (7 passing). Real-LOD2 smoke: 240,646 faces
+      → 74,850 shell voxels (roof 33k, facade 41k) in ~18 s. **(M0-3 done)**
 - [ ] **Save `.npz`** — writer emitting all contract fields + metadata.
 - [ ] **Write tests** — round-trip, grid-equality, alignment regression.
 - [ ] **Sanity visualization** — eyeball one sample.

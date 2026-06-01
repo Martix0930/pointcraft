@@ -5,7 +5,7 @@ Append a dated entry at the end of every session. Keep the "Current status" and
 
 ---
 
-## Current status: **IN PROGRESS** — Phase A + B done; M0-1 (voxel grid) + M0-2 (LiDAR → partial occupancy) done; next is M0-3 (LOD2 shell → target occupancy + semantics)
+## Current status: **IN PROGRESS** — Phase A + B done; M0-1 (grid) + M0-2 (partial) + M0-3 (LOD2 shell target) done; next is M0-4 (masks + .npz writer) then C6/C7 (sanity view + run_m0)
 
 Package layout standardized: `src/pointcraft/` is the single importable
 `pointcraft` package. Baseline reusable code at `src/pointcraft/baseline/` +
@@ -182,3 +182,32 @@ Ready for Phase C (M0-2: LiDAR → partial occupancy on the shared `VoxelGrid`).
 - Next: **M0-3** LOD2 shell → `coords_target`/`occ_target`/`sem_target` on the
   SAME grid — reuse `LOD2Rasterizer.colored_point_samples` (surface point
   sampling) to produce shell voxels (per Phase B reuse plan).
+
+### 2026-06-01 — M0-3: LOD2 shell → target occupancy + semantics
+
+- Added `src/pointcraft/data/target.py`:
+  - `voxelize_target(verts, faces, grid) -> (coords_target int32[M,3],
+    occ_target uint8[M] all-1, sem_target int64[M])`. Shell only (D2): each
+    triangle is barycentric-sampled (spacing = voxel_size/2) into world points,
+    mapped to the shared `VoxelGrid`, merged with `np.unique`.
+  - Deterministic semantics from face orientation: `|n_z| >= roof_nz (0.7)` →
+    roof(3), else facade(4); per-voxel label = majority vote of samples, ties →
+    roof (lower id). Seeded RNG → deterministic (tested).
+  - `load_lod2_meshes(tile_dirs_or_objs)` merges multiple OBJs (vertex-index
+    offset), reusing `data.lod2.parse_obj`.
+  - Exported `voxelize_target`, `load_lod2_meshes`, `ROOF_LABEL`, `FACADE_LABEL`.
+- Tests `tests/test_target_occupancy.py` (7 passing): contract dtypes/shapes,
+  occ all-1 + unique/in-bounds coords, labels ⊆ {3,4}, roof at k=3 + facade
+  present, **facade fills mid-height k∈{1,2}** (the aerial-unobserved completion
+  region), determinism, empty-mesh.
+- Real-LOD2 smoke (`53394611`+`53394621`, clipped to LAS grid): 240,646 faces →
+  74,850 shell voxels (roof 33,453 / facade 41,397), occ all-1, in-bounds,
+  k∈[10,63] (LOD2 building bottoms z≈−4 to roofs ≈48 m; the 213 m towers fall
+  outside the LAS XY extent and are correctly dropped). ~18 s for one tile.
+- **Known limitations** (logged for later): (a) a building bottom face is
+  near-horizontal so labelled roof — acceptable for M0, rare in PLATEAU LOD2;
+  (b) sloped roofs near the |n_z|=0.7 boundary may flip roof/facade; (c) ~18 s
+  because all faces are sampled before XY clipping — a per-face bbox pre-reject
+  (cf. `colored_point_samples`) would speed run_m0 up; deferred (one-tile cost ok).
+- Next: **M0-4** observed/unobserved masks (D4) + `.npz` writer (all contract
+  fields + metadata), then sanity view + `scripts/run_m0.py`.
