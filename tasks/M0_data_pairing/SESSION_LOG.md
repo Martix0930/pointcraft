@@ -5,7 +5,7 @@ Append a dated entry at the end of every session. Keep the "Current status" and
 
 ---
 
-## Current status: **IN PROGRESS** — Phase A + B done; M0-1..M0-4 done (grid, partial, LOD2 shell target, masks + .npz writer); next is C6 sanity view + C7 scripts/run_m0.py (end-to-end), then Phase D regression tests + Phase E handoff
+## Current status: **IN PROGRESS** — Phase A + B done; M0-1..M0-4 + C6 (sanity view) + C7 (run_m0 end-to-end) done; produces a valid .npz on the real tile. Next: Phase D regression tests (grid-equality, alignment) + Phase E handoff to M1
 
 Package layout standardized: `src/pointcraft/` is the single importable
 `pointcraft` package. Baseline reusable code at `src/pointcraft/baseline/` +
@@ -232,3 +232,29 @@ Ready for Phase C (M0-2: LiDAR → partial occupancy on the shared `VoxelGrid`).
 - Next: **C6** sanity visualization of a produced sample + **C7**
   `scripts/run_m0.py` (raw LAS + LOD2 → one `.npz`, end-to-end), then Phase D
   regression tests (grid-equality, alignment) + Phase E commit/handoff to M1.
+
+### 2026-06-01 — C6 + C7: run_m0 end-to-end + sanity view
+
+- Added `scripts/run_m0.py`: one command, raw LiDAR + LOD2 → one contract `.npz`.
+  - Inputs via `--config` (reuses `configs/tokyo_station.yaml`), explicit
+    `--las/--lod2`, or `--fixture` (tiny committed data, fast smoke). `_load_points`
+    dispatches `.las/.laz` (laspy) vs `.csv` (fixture).
+  - Builds the shared `VoxelGrid` from the **LiDAR extent** (contract rule 4);
+    runs `voxelize_partial` + `voxelize_target` on that one grid, `compute_masks`,
+    `build_metadata`, `write_sample_npz`. `--viz` saves a matplotlib sanity PNG.
+  - **Grid-extent fix:** tile bounds use an EXCLUSIVE upper bound (`floor+1`
+    cells), so a point exactly on `max()` (e.g. an integer roof z) lands inside
+    the grid instead of flooring one cell past `ceil(extent/voxel)` and being
+    dropped. (Fixture exposed this: roof k=3 points were being lost; partial went
+    3→12 voxels after the fix.) `VoxelGrid.from_bounds` is unchanged — its
+    exclusive-bounds semantics are correct; the script now feeds it correct
+    bounds. Gotcha noted for any future grid-from-points caller.
+- Real-tile end-to-end (`configs/tokyo_station.yaml`):
+  grid 240×232×64; partial 96,264 voxels; target 74,850 shell voxels (roof
+  33,453 / facade 41,397); masks observed 17,854 / **unobserved 56,996 (76.1 %)**
+  — i.e. ~3/4 of the target (mostly facades) is never seen by the aerial LiDAR,
+  which is exactly the completion region M4 targets. `.npz` 813 KB. Sanity PNG
+  eyeballed (height map, semantic top-down, vertical slice) — looks correct.
+- Generated outputs land in `outputs/` (git-ignored — `.npz` + `outputs/`).
+- Next: **Phase D** regression tests (grid-equality of partial/target; building
+  footprint/alignment) and **Phase E** handoff to M1.

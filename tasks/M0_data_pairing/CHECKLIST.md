@@ -30,5 +30,8 @@ Work through in order. Check off as completed; keep notes inline.
       (D4); `build_metadata` assembles the metadata block. Tests in
       `tests/test_sample_io.py` (4 passing, end-to-end on fixture). **(M0-4 done)**
 - [ ] **Write tests** — round-trip, grid-equality, alignment regression.
-- [ ] **Sanity visualization** — eyeball one sample.
+- [x] **Sanity visualization** — `scripts/run_m0.py --viz` saves a 1×3 matplotlib
+      figure (partial top-down height, target top-down semantic, vertical slice
+      showing shell/partial/UNobserved facade). Eyeballed on fixture + real tile;
+      looks right. **(C6 done)**
 - [ ] **Document known limitations** — alignment caveats, dropped points, label gaps.
