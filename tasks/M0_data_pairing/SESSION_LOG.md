@@ -336,6 +336,13 @@ midrise/low, not just one landmark; tags point-sparse coverage-edge towers
 `_SPARSEpts`). Both are source geometry (no voxelization) for manual
 CloudCompare/MeshLab review. Real tile: dense-coverage mid/low-rise are the clean
 alignment checks; the ~160 m towers are point-sparse (swath-edge coverage gap).
+Also `scripts/render_alignment.py` → renders dense buildings as 2D EW/NS
+cross-section PNGs (black LiDAR / red LOD2 roof / blue LOD2 facade, all clipped to
+one XY box) so a reviewer with no 3D viewer can judge alignment from images
+(`outputs/m0/align3d/renders/`). Visual check on dense mid/low-rise: red roofs sit
+on the black point tops, blue walls stand in the point-empty gaps — source data
+aligns; the 76 % is inflated by exact-voxel matching + the coverage gap, as
+diagnosed.
 **No labelling logic changed yet** — `compute_masks`/`target` left as-is pending
 the human verdict. Candidate fixes (z-tolerance, coverage clip) are on hold.
 Once verified, log the decision in `docs/06_DECISIONS.md` and bump
