@@ -31,6 +31,10 @@ experiments/*/outputs/
 data/
 raw/
 raw_data/
+# but the `data` source subpackage is code, not a dataset dir
+!src/pointcraft/data/
+!src/pointcraft/data/**
+src/pointcraft/data/**/__pycache__/
 
 # Model checkpoints & training logs
 *.ckpt

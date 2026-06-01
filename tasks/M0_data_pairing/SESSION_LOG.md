@@ -5,7 +5,7 @@ Append a dated entry at the end of every session. Keep the "Current status" and
 
 ---
 
-## Current status: **IN PROGRESS** — Phase A + Phase B done (decisions locked, data contract finalized, z-alignment GATE PASSED); M0-1 (voxel grid) done; next is Phase C/M0-2 (LiDAR → partial occupancy)
+## Current status: **IN PROGRESS** — Phase A + B done; M0-1 (voxel grid) + M0-2 (LiDAR → partial occupancy) done; next is M0-3 (LOD2 shell → target occupancy + semantics)
 
 Package layout standardized: `src/pointcraft/` is the single importable
 `pointcraft` package. Baseline reusable code at `src/pointcraft/baseline/` +
@@ -155,3 +155,30 @@ the overlap region; 450 cells with both):
 
 **Phase B exit criterion met.** No implementation code added; no legacy refactor.
 Ready for Phase C (M0-2: LiDAR → partial occupancy on the shared `VoxelGrid`).
+
+### 2026-06-01 — M0-2: LiDAR → partial occupancy
+
+- Added `src/pointcraft/data/partial.py`:
+  - `voxelize_partial(points_xyz, grid) -> (coords_partial int32[N,3],
+    feats_partial float32[N,2])`. Maps points via `VoxelGrid.world_to_index`,
+    drops out-of-range (logged), merges duplicates with `np.unique(axis=0)` +
+    `np.add.at` segmented aggregation.
+  - `feature_layout v0.1 = ["height", "point_count"]`; `height` = **mean** z per
+    voxel (robust to the LiDAR outliers Phase B flagged — raw max over-counts);
+    `point_count` = points merged.
+  - `load_las_xyz(path)` thin laspy wrapper (lazy import; tests don't need laspy).
+  - Exported from `pointcraft.data` (`voxelize_partial`, `load_las_xyz`,
+    `FEATURE_LAYOUT_V01`).
+- Fixed `test_data/m0_data_pairing/expected_metadata.json`: `feature_layout` was
+  the stale pre-M0 `["intensity","classification"]` → now matches the v0.1
+  contract `["height","point_count"]`.
+- Added `tests/test_partial_occupancy.py` (7 passing, fixture-driven): contract
+  dtypes/shapes, unique+in-bounds coords, 13 pts→12 voxels & point_count
+  conservation, roof(k=3)/ground(k=0) observed while facades(k∈{1,2}) UNobserved,
+  merged-voxel height = mean z, empty input, out-of-range dropped.
+- Real-LAS smoke (`09LD1874.las`): 1,752,298 pts → 96,264 occupied voxels on a
+  240×232×64 grid; all in-bounds, unique, point_count sum == input, height ∈
+  [-14.88, 48.18]. No neural network.
+- Next: **M0-3** LOD2 shell → `coords_target`/`occ_target`/`sem_target` on the
+  SAME grid — reuse `LOD2Rasterizer.colored_point_samples` (surface point
+  sampling) to produce shell voxels (per Phase B reuse plan).

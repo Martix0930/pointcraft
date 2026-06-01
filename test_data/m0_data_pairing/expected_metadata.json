@@ -8,5 +8,5 @@
   "crs": "LOCAL_SYNTHETIC",
   "source_files": ["tiny_lidar_points.csv", "tiny_lod2_cube.obj"],
   "dataset_version": "v0.1",
-  "feature_layout": ["intensity", "classification"]
+  "feature_layout": ["height", "point_count"]
 }

@@ -12,8 +12,12 @@ Work through in order. Check off as completed; keep notes inline.
 - [x] **Implement voxel grid** — `pointcraft.voxelization.VoxelGrid`
       (`from_bounds`, `world_to_index`, `index_to_center`/`_corner`, `in_bounds`);
       tests in `tests/test_voxel_grid.py` (7 passing, fixture-driven). **(M0-1 done)**
-- [ ] **Implement partial occupancy** — LiDAR → `coords_partial` + `feats_partial`
-      with the documented feature layout.
+- [x] **Implement partial occupancy** — `pointcraft.data.voxelize_partial`
+      (+ `load_las_xyz`): LiDAR → `coords_partial` (int32 [N,3]) + `feats_partial`
+      (float32 [N,2], layout `["height","point_count"]`); drops out-of-range
+      (logged), merges duplicates. Tests in `tests/test_partial_occupancy.py`
+      (7 passing, fixture-driven). Real-LAS smoke: 1.75M pts → 96,264 voxels.
+      **(M0-2 done)**
 - [ ] **Implement target occupancy** — LOD2/mesh → `coords_target`, `occ_target`,
       `sem_target` on the same grid.
 - [ ] **Save `.npz`** — writer emitting all contract fields + metadata.
