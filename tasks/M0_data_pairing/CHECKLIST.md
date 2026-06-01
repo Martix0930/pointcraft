@@ -24,7 +24,11 @@ Work through in order. Check off as completed; keep notes inline.
       by face-normal |n_z|≥0.7, majority vote, ties→roof). Tests in
       `tests/test_target_occupancy.py` (7 passing). Real-LOD2 smoke: 240,646 faces
       → 74,850 shell voxels (roof 33k, facade 41k) in ~18 s. **(M0-3 done)**
-- [ ] **Save `.npz`** — writer emitting all contract fields + metadata.
+- [x] **Save `.npz`** — `pointcraft.data.write_sample_npz` emits all 7 contract
+      array fields (correct dtypes) + `metadata` as JSON (numpy.load without
+      allow_pickle). `compute_masks` derives required observed/unobserved masks
+      (D4); `build_metadata` assembles the metadata block. Tests in
+      `tests/test_sample_io.py` (4 passing, end-to-end on fixture). **(M0-4 done)**
 - [ ] **Write tests** — round-trip, grid-equality, alignment regression.
 - [ ] **Sanity visualization** — eyeball one sample.
 - [ ] **Document known limitations** — alignment caveats, dropped points, label gaps.

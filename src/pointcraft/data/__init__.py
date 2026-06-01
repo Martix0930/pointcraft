@@ -3,6 +3,13 @@
 See docs/02_DATA_CONTRACT.md and tasks/M0_data_pairing/. (M0)
 """
 from .partial import FEATURE_LAYOUT_V01, load_las_xyz, voxelize_partial
+from .sample import (
+    DATASET_VERSION,
+    build_metadata,
+    compute_masks,
+    load_sample_metadata,
+    write_sample_npz,
+)
 from .target import (
     FACADE_LABEL,
     ROOF_LABEL,
@@ -18,4 +25,9 @@ __all__ = [
     "load_lod2_meshes",
     "ROOF_LABEL",
     "FACADE_LABEL",
+    "compute_masks",
+    "build_metadata",
+    "write_sample_npz",
+    "load_sample_metadata",
+    "DATASET_VERSION",
 ]

@@ -5,7 +5,7 @@ Append a dated entry at the end of every session. Keep the "Current status" and
 
 ---
 
-## Current status: **IN PROGRESS** — Phase A + B done; M0-1 (grid) + M0-2 (partial) + M0-3 (LOD2 shell target) done; next is M0-4 (masks + .npz writer) then C6/C7 (sanity view + run_m0)
+## Current status: **IN PROGRESS** — Phase A + B done; M0-1..M0-4 done (grid, partial, LOD2 shell target, masks + .npz writer); next is C6 sanity view + C7 scripts/run_m0.py (end-to-end), then Phase D regression tests + Phase E handoff
 
 Package layout standardized: `src/pointcraft/` is the single importable
 `pointcraft` package. Baseline reusable code at `src/pointcraft/baseline/` +
@@ -211,3 +211,24 @@ Ready for Phase C (M0-2: LiDAR → partial occupancy on the shared `VoxelGrid`).
   (cf. `colored_point_samples`) would speed run_m0 up; deferred (one-tile cost ok).
 - Next: **M0-4** observed/unobserved masks (D4) + `.npz` writer (all contract
   fields + metadata), then sanity view + `scripts/run_m0.py`.
+
+### 2026-06-01 — M0-4: observed/unobserved masks + .npz writer
+
+- Added `src/pointcraft/data/sample.py`:
+  - `compute_masks(coords_target, coords_partial, grid)` — observed =
+    `coords_target ∈ coords_partial` (via int64 ravel keys on grid shape),
+    unobserved = `1 - observed`; both uint8 aligned to `coords_target` (D4).
+  - `build_metadata(grid, tile_id, crs, source_files, …)` — all 9 contract keys
+    (`dataset_version` default `v0.1`, `feature_layout` default = partial layout).
+  - `write_sample_npz(path, …)` — writes the 7 array fields at exact contract
+    dtypes + `metadata` as a 0-d JSON string array → reloadable with plain
+    `numpy.load` (no allow_pickle). `load_sample_metadata` decodes it back.
+  - Exported the above from `pointcraft.data`.
+- Tests `tests/test_sample_io.py` (4 passing, end-to-end on the cube fixture):
+  masks complementary & row-aligned; observed⊇roof / unobserved⊇mid-facade;
+  masks match brute-force set membership; write→`np.load` round-trip checks every
+  contract field dtype, metadata JSON keys/values, and mutual shape consistency.
+- Full suite now **25 passing**.
+- Next: **C6** sanity visualization of a produced sample + **C7**
+  `scripts/run_m0.py` (raw LAS + LOD2 → one `.npz`, end-to-end), then Phase D
+  regression tests (grid-equality, alignment) + Phase E commit/handoff to M1.
