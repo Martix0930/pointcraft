@@ -5,10 +5,15 @@ Append a dated entry at the end of every session. Keep the "Current status" and
 
 ---
 
-## Current status: **DONE (v0.1)** — M0 data pairing complete. One command
-(`scripts/run_m0.py`) turns raw LiDAR + LOD2 into one contract `.npz` on a shared
-VoxelGrid, with observed/unobserved masks. 28 tests passing. All ACCEPTANCE items
-met. **M1 (deterministic baseline) is now unblocked.**
+## Current status: **DONE (v0.1) — pipeline complete; ⚠ label quality under
+manual review.** One command (`scripts/run_m0.py`) turns raw LiDAR + LOD2 into one
+contract `.npz` on a shared VoxelGrid, with observed/unobserved masks. 28 tests
+passing; all ACCEPTANCE items met. **BUT** a follow-up audit found the
+observed/unobserved labelling is inflated by alignment artifacts (see the
+"Alignment audit" entry below) — the masks are not yet trustworthy as supervision.
+3D QA exports produced via `scripts/export_alignment_3d.py`; **awaiting human
+verification** before fixing. M1 is technically unblocked but should wait on the
+audit outcome since label quality affects everything downstream.
 
 M0 delivers `pointcraft.data`: `voxelize_partial` (LiDAR→partial), `voxelize_target`
 (LOD2 shell→target+semantics), `compute_masks` (D4), `build_metadata` +
@@ -293,3 +298,40 @@ Ready for Phase C (M0-2: LiDAR → partial occupancy on the shared `VoxelGrid`).
   **M1 is unblocked** — see the "Next recommended prompt" at the top.
 - Commit sequence this session: docs(Phase A) → docs(Phase B) → feat partial →
   feat target → feat masks+writer → feat run_m0 → test(Phase D) → this handoff.
+
+### 2026-06-01 — Alignment audit of the observed/unobserved masks (⚠ findings)
+
+Triggered by a sanity question on the "76.1 % unobserved" figure. Dissected the
+real-tile `.npz`; the headline number is **inflated by two artifacts**, not all
+genuine blind spots:
+
+- **Composition:** of 56,996 unobserved voxels, 30,345 are facade but **26,651
+  are roof** — i.e. **80 % of roof voxels are flagged "not seen"**, which is
+  physically wrong (aerial LiDAR sees roofs). So the masks over-state the
+  completion region.
+- **Height datum is fine.** On the 11,377 columns where both exist, partial-top
+  minus LOD2-roof k: **median 0.0**, 74 % within ±1 voxel, no systematic offset
+  (Phase-B z-gate holds). Mean +2.07 / 19.5 % of partial sits >2 above the roof =
+  trees/rooftop clutter over the footprint (expected).
+- **Artifact 1 — z quantization.** `compute_masks` matches voxels by EXACT
+  (i,j,k). A roof surface at k=40 and a roof point at k=39 differ <1 m but miss.
+  Allowing ±1 voxel tolerance: roof observed 20 %→35 %, overall unobserved
+  76 %→60 %.
+- **Artifact 2 — XY coverage gap (the real concern).** 36 % of LOD2 roof columns
+  have NO LiDAR point at all (any height). The 3-colour XY map shows these
+  concentrate at the **tile edges/corners** — LOD2 extent ≫ the LiDAR swath
+  (Phase B noted this), so edge buildings have model geometry but no point
+  support. Using those as supervision = teaching from unevidenced data.
+- **Conclusion:** geometry/datum align well *inside the swath*; the masks need
+  (a) a vertical tolerance in `compute_masks`, and (b) clipping the target to the
+  LiDAR-covered footprint (or marking LOD2-only cells `ignore`, excluded from the
+  M4 denominator). **Genuine blind region ≈ the facades (~40 % of target), not
+  76 %.**
+
+**Action taken:** added `scripts/export_alignment_3d.py` → exports raw LiDAR
+(height-coloured) + LOD2 roof(red)/facade(blue) surface samples as 3 overlaying
+PLYs (`outputs/m0/align3d/`, git-ignored) for manual CloudCompare/MeshLab review.
+**No labelling logic changed yet** — `compute_masks`/`target` left as-is pending
+the human verdict. Candidate fixes (z-tolerance, coverage clip) are on hold.
+Once verified, log the decision in `docs/06_DECISIONS.md` and bump
+`dataset_version` if the mask definition changes.
