@@ -5,25 +5,42 @@ Append a dated entry at the end of every session. Keep the "Current status" and
 
 ---
 
-## Current status: **IN PROGRESS** — Phase A + B done; M0-1..M0-4 + C6 (sanity view) + C7 (run_m0 end-to-end) done; produces a valid .npz on the real tile. Next: Phase D regression tests (grid-equality, alignment) + Phase E handoff to M1
+## Current status: **DONE (v0.1)** — M0 data pairing complete. One command
+(`scripts/run_m0.py`) turns raw LiDAR + LOD2 into one contract `.npz` on a shared
+VoxelGrid, with observed/unobserved masks. 28 tests passing. All ACCEPTANCE items
+met. **M1 (deterministic baseline) is now unblocked.**
 
-Package layout standardized: `src/pointcraft/` is the single importable
-`pointcraft` package. Baseline reusable code at `src/pointcraft/baseline/` +
-`pointcraft.data.lod2` + `pointcraft.pipeline`. Data config externalized to
-`configs/tokyo_station.yaml` (loader: `pointcraft.utils.config`). Tiny fixtures in
-`test_data/`. **M0-1 shared voxel grid implemented + tested (7 passing).**
+M0 delivers `pointcraft.data`: `voxelize_partial` (LiDAR→partial), `voxelize_target`
+(LOD2 shell→target+semantics), `compute_masks` (D4), `build_metadata` +
+`write_sample_npz`; on the shared `pointcraft.voxelization.VoxelGrid`. Driven
+end-to-end by `scripts/run_m0.py` (config / explicit / `--fixture`, `--viz`).
+Contract finalized for `dataset_version=v0.1`. 28 tests passing.
+
+## Known limitations (M0 v0.1)
+
+- **Building bottom labelled roof.** Semantics come from face normal |n_z|; a
+  building's near-horizontal bottom face is labelled roof(3). Rare/benign in
+  PLATEAU LOD2; revisit if it pollutes metrics.
+- **Sloped-roof threshold.** `roof_nz=0.7` splits roof/facade; steep roofs near
+  the cutoff may flip. Tune per-source if needed.
+- **No terrain/vegetation target.** Target is the LOD2 building shell only
+  (classes 3/4). Ground(1)/veg(5) need a terrain source (DEM) — future version.
+- **No per-face XY pre-cull.** `voxelize_target` samples all faces before
+  clipping → ~18 s for the real tile. Fine for one tile; add a bbox reject if
+  batching many tiles (M2+).
+- **z aggregation.** `height` is mean z (robust); raw LiDAR has rare high
+  outliers (Phase B). No DTM/height-above-ground in v0.1 (absolute z, D3).
+- **Grid from points.** Callers building a grid from raw point min/max must use
+  an exclusive upper bound (run_m0 does) or max-boundary points are dropped.
 
 ## Next recommended prompt for Claude Code
 
-> Read `CLAUDE.md`, `docs/02_DATA_CONTRACT.md`, and `tasks/M0_data_pairing/`. M0-1
-> (the shared `VoxelGrid` in `pointcraft.voxelization`) is done and tested. Start
-> **M0-2: LiDAR → partial occupancy** in `src/pointcraft/data/`: load points (CSV
-> fixture `test_data/m0_data_pairing/tiny_lidar_points.csv`; real LAS via
-> `pointcraft.baseline` loader / laspy), map onto a `VoxelGrid` (dedupe), and
-> produce `coords_partial` (int32 [N,3]) + `feats_partial` (float32 [N,C]) with the
-> documented `feature_layout` (start minimal: intensity, classification). Add a test
-> using the tiny LiDAR CSV asserting partial occupancy sits on the shared grid and
-> the roof voxels are present. No neural network. Update this SESSION_LOG.
+> Read `CLAUDE.md` and `tasks/M1_deterministic_baseline/` (TASK_SPEC, ACCEPTANCE,
+> CHECKLIST). M0 is **DONE**: paired voxel samples are produced by
+> `scripts/run_m0.py` → contract `.npz` (see `docs/02_DATA_CONTRACT.md`), and the
+> M1 baseline pipeline already exists at `src/pointcraft/baseline/stages.py`.
+> Begin M1 per its TASK_SPEC. Do not redesign the repo or touch M0 code beyond
+> what M1 explicitly needs; keep the no-NN scope until M2. Update M1's SESSION_LOG.
 
 ---
 
@@ -258,3 +275,21 @@ Ready for Phase C (M0-2: LiDAR → partial occupancy on the shared `VoxelGrid`).
 - Generated outputs land in `outputs/` (git-ignored — `.npz` + `outputs/`).
 - Next: **Phase D** regression tests (grid-equality of partial/target; building
   footprint/alignment) and **Phase E** handoff to M1.
+
+### 2026-06-01 — Phase D + E: regression tests, M0 DONE, handoff to M1
+
+- Added `tests/test_pairing_alignment.py` (3 tests): partial & target share one
+  grid (`in_bounds` + `0<=idx<shape`); building target roof footprint overlaps
+  the observed-roof voxels and they're flagged observed; `run_m0 --fixture`
+  end-to-end writes a `numpy.load`-able `.npz` with every contract field +
+  metadata, partial recovering roof(k=3) and ground(k=0). World↔index round-trip
+  stays in `test_voxel_grid.py`. **Full suite: 28 passing.**
+- **ACCEPTANCE re-checked — all met:** end-to-end one tile (run_m0), shared grid
+  (tested), independently loadable npz with all fields/dtypes, complete metadata
+  (`dataset_version=v0.1`), round-trip + grid-equality + alignment tests, sanity
+  viz, masks stored (D4), session log updated, scope respected (no NN/torch/
+  semantic learning), `scripts/run_m0.py` present.
+- Status → **DONE (v0.1)**. Known limitations consolidated in the block above.
+  **M1 is unblocked** — see the "Next recommended prompt" at the top.
+- Commit sequence this session: docs(Phase A) → docs(Phase B) → feat partial →
+  feat target → feat masks+writer → feat run_m0 → test(Phase D) → this handoff.

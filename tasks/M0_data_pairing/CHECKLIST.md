@@ -36,4 +36,7 @@ Work through in order. Check off as completed; keep notes inline.
       figure (partial top-down height, target top-down semantic, vertical slice
       showing shell/partial/UNobserved facade). Eyeballed on fixture + real tile;
       looks right. **(C6 done)**
-- [ ] **Document known limitations** — alignment caveats, dropped points, label gaps.
+- [x] **Document known limitations** — see the "Known limitations (M0 v0.1)"
+      block in `SESSION_LOG.md` (building-bottom labelled roof, sloped-roof
+      normal threshold, no terrain/veg target, ~18 s no face pre-cull, z-outlier
+      note). **(done)**
