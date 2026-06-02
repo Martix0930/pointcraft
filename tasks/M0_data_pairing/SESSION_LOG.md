@@ -60,8 +60,16 @@ finalized for `dataset_version=v0.1`. **32 tests passing.**
   `GroundSurface`, which is **sparse** (open-bottomed PLATEAU buildings; ~39/2061
   surfaces on this tile). True terrain ground / vegetation still need a DEM/LiDAR
   classes — future `dataset_version`.
-- **North-edge sliver (tile 09LD1874).** A few buildings near a tile edge may live
-  in a neighbouring CityGML grid; current run uses grids 610/611/620/621. Benign.
+- **Centroid tile-clip mismatches border buildings — M2 BLOCKER.** CityGML is
+  clipped to the tile by ring centroid, so a boundary-straddling building can keep
+  its roof LiDAR points (in `coords_partial`) while its target is dropped. Harmless
+  for single-tile M0 (extra points are unanswered input, never in `coords_target`),
+  but **must be replaced by geometry-overlap clipping / an ignore border before any
+  multi-tile training** or the border band teaches visible roofs as empty. See
+  `docs/07_GOTCHAS.md` + the alignment-rules BLOCKER in `docs/02_DATA_CONTRACT.md`.
+- **`observed` is a task-oriented line, not physical observation (D6/D7).** Facade
+  ≈35 % observed by design, vs ≈67 % physically grazed within 1 m. M4 must report
+  the completion metric under multiple mask definitions (see M4 ACCEPTANCE).
 - **Per-surface XY pre-cull.** `run_m0` clips surfaces by ring centroid to the grid
   extent before `voxelize_citygml_target`; whole-surface sampling is still O(faces).
   Fine for one tile; add a bbox reject if batching (M2+).
@@ -623,3 +631,35 @@ premise assumed (~35 %); weight per-class completion metrics accordingly, and/or
 raise `wall_margin` to set facade-observed nearer 30 %.
 
 M0 fully DONE (v0.2). M1 unblocked.
+
+### 2026-06-03 — M0 docs fixation: boundary-crop blocker, mask definition, M4 sensitivity
+
+Docs-only, off the back of the OBJ-vs-CityGML comparison and alignment audit
+(no `.py` changed):
+
+- **OBJ vs CityGML (measured on 09LD1874):** OBJ's normal heuristic mislabels
+  **49.5 % of its "roof" voxels** as roof when they are actually building bottoms
+  at street level (≈2.0 m); OBJ has **no ground class**. CityGML reads roof/wall/
+  **ground** from surface types (ground 43,081 voxels, ≈2.0 m), kills the
+  bottom→roof bug (roof-at-base ≈2.6 k vs 45.4 k), and aligns marginally better
+  (z-gate median −0.04 m vs +0.32 m). → CityGML adopted as the real target (D5).
+- **Alignment completeness check:** all 2061 in-tile surfaces come from grids
+  611+621 (610/620/622 contribute 0 → no missed grid); **100 % of CityGML roof
+  footprint columns have LiDAR support** (no evidence-free answer buildings). The
+  reverse 28 % "tall LiDAR, no CityGML" decomposes into LOD2 simplification
+  (rooftop clutter/overhang ~34 %), low trees/clutter (isolated cols median 13.5 m),
+  and **boundary-clip artifacts** (the 152 m north tower is in CityGML but 57 % of
+  its surfaces were centroid-clipped). Net: registration + answer-completeness are
+  solid for single-tile M0.
+- **Fixed in docs (this task):**
+  1. Centroid tile-clip → recorded in `docs/07_GOTCHAS.md`; promoted to an explicit
+     **M2 BLOCKER** in `docs/02_DATA_CONTRACT.md` alignment rules.
+  2. `observed` declared a **task-oriented** definition (facade ≈35 % task vs ≈67 %
+     physical) in `docs/02_DATA_CONTRACT.md`; logged as **D7** (extends D6) in
+     `docs/06_DECISIONS.md`.
+  3. M4 **mask-definition sensitivity** added as a **required** ACCEPTANCE item and
+     a TASK_SPEC scope line (≥3 definitions; "beats M1" must hold under all).
+
+**Status unchanged: M0 DONE (v0.2).** Two prerequisites now tracked for later: the
+centroid-clip M2 BLOCKER (before multi-tile) and the M4 mask-sensitivity gate (for
+the headline). M1 remains unblocked and is the next step.

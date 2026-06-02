@@ -44,8 +44,20 @@ observed by its semantic class (`sem_target`):
   the base/top wall voxel.
 - Legacy exact set-membership (v0.1) remains available via `sem_target=None`.
 - Reference numbers (tile 09LD1874): observed roof 70 % / facade ~35 % / ground 18 %;
-  total unobserved 61 %. The facade figure reflects this LiDAR's real (sparse)
-  oblique facade coverage, not an artifact (D6 research note).
+  total unobserved 61 %.
+
+> 🔴 **`observed` is a TASK-ORIENTED definition, NOT a physical-observation
+> measure.** Read this before interpreting any M4 number. We deliberately count only
+> ~35 % of facade as observed, but the LiDAR physically grazes **~67 % of facade
+> within 1 m** (an exact-hit straddle test: facade observed jumps 38 % → 67 % under
+> an XY ±1 tolerance, the same magnitude as the roof z-straddle). Roof/ground get a
+> z±1 quantization tolerance; **facade is intentionally kept exact (no XY tolerance)
+> to preserve an unobserved region** so completion does not degrade into copying the
+> input. This is a chosen task-design line, not "what the sensor saw" — so the M4
+> headline metric depends on where this line is drawn. Per the M4 acceptance
+> criteria, M4 MUST report the unobserved-completion metric under multiple mask
+> definitions (strict ~35 % / mid-wall / tolerant ~67 %) and show the
+> "beats M1 baseline" conclusion survives moving the line. See decisions D6 + D7.
 
 ### Feature layout (`dataset_version = v0.2`, unchanged from v0.1)
 
@@ -131,5 +143,15 @@ CityGML surface-type → label mapping (D5):
    `dataset_version` (document the offset in `metadata`).
 4. **Tile extent.** Tile bounds derive from the LiDAR coverage; the (reprojected)
    CityGML target is clipped to the same bounds.
+
+   > ⚠ **M2 BLOCKER (not optional).** M0 clips CityGML to the tile by **ring
+   > centroid**, which mismatches **buildings straddling a tile boundary**: their
+   > roof LiDAR points can fall inside the tile while the CityGML target is dropped
+   > (centroid just outside). This is harmless for single-tile M0 (the extra points
+   > are unanswered input only — see `docs/07_GOTCHAS.md`), but **before any
+   > multi-tile training the centroid clip MUST be replaced by geometry-overlap
+   > clipping, or an `ignore` margin must be kept along tile borders.** Otherwise the
+   > border band systematically supervises *visible roofs as empty* and teaches the
+   > model wrong. Treat this as a blocking prerequisite for M2, not a cleanup.
 5. **Sanity check.** A target building's footprint must overlap the observed roof
    voxels of the same building (alignment regression test in M0).

@@ -81,6 +81,24 @@ Practical traps to avoid. Add entries as they bite.
   flag. Mesh grids in `mesh_index.csv` carry *data-extent* bboxes (irregular), so
   bbox overlap ≠ geometry overlap.
 
+## CityGML→tile clipping by centroid mismatches at tile borders (M2 BLOCKER)
+
+- `run_m0` currently keeps a CityGML surface if its **exterior-ring centroid** lands
+  in the grid XY extent. A building **straddling a tile boundary** is then taken
+  whole or dropped whole by its centroid, while its LiDAR points are clipped to the
+  LAS bbox. Result: a border building can have **roof LiDAR points inside the tile
+  but no CityGML target** (centroid fell just outside) — or vice versa.
+- Verified on 09LD1874: the ~152 m north-edge tower's LiDAR roof points sit inside
+  the tile, but 57 % of its CityGML surfaces have centroids north of the edge and
+  were clipped → it shows up as "tall LiDAR, no target".
+- **M0 (single tile) is unaffected:** those extra LiDAR voxels are just *unanswered
+  input context* — they go into `coords_partial` only, never into `coords_target`,
+  so they are neither observed nor unobserved and never enter any metric.
+- **M2 BLOCKER (see `docs/02_DATA_CONTRACT.md` alignment rules):** before multi-tile
+  training, replace centroid clipping with **geometry-overlap clipping** or an
+  **ignore margin** at tile borders — otherwise the border band systematically
+  teaches the model that visible roofs are empty.
+
 ## Windows
 
 - Git may warn `LF will be replaced by CRLF` — harmless.

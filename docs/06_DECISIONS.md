@@ -344,3 +344,49 @@ Consequences:
 
 Status:
 Adopted (M0, v0.2).
+
+---
+
+## 2026-06-03 - M0/D7 - `observed`/`unobserved` is a task-oriented line, not physical observation
+
+Context:
+D6 fixed the roof z-quantization but left facades exact. A straddle test on
+09LD1874 showed this is not a neutral choice: the LiDAR physically grazes **~67 %
+of facade within 1 m** (facade observed 38 % → 67 % under an XY ±1 tolerance — the
+same magnitude as the roof z-straddle that D6 corrected). So treating roofs with a
+tolerance while keeping facades exact is partly an artifact fix (roofs) and partly a
+**deliberate task-design choice** (facades). This must be stated explicitly so the
+M4 headline isn't mistaken for a physical-observation measurement.
+
+Decision:
+- **Input keeps partially-visible facades.** `coords_partial` contains every LiDAR
+  voxel, including the real (sparse) facade returns; we do not strip them.
+- **`observed` / `unobserved` is a task-oriented definition.** Facade is counted
+  observed only on a genuine exact mid-wall hit (~35 %), even though ~67 % is
+  physically grazed; no XY tolerance is applied to facades. This intentionally
+  carves out an unobserved region so completion is a generative task, not a copy of
+  the input.
+- The chosen line is **documented as such** in `02_DATA_CONTRACT.md`, and its
+  robustness is made a hard M4 acceptance item (multi-definition sensitivity).
+
+Reason:
+- Without a preserved unobserved region the task degenerates into reproducing the
+  input (the model "completes" what it already sees).
+- With facades forced to 0 % observed the task would be needlessly impossible
+  (pure roof→facade hallucination); ~35 % keeps it learnable-but-meaningful.
+- Honesty: the headline depends on where the observed line sits, so the line is
+  declared a design choice and M4 must prove the conclusion survives moving it.
+
+Key fact to record (do not lose):
+**facade observed ≈ 35 % (task) vs ≈ 67 % (physical, ±1 voxel).**
+
+Consequences:
+- M4 ACCEPTANCE gains a required multi-mask-definition sensitivity check
+  (strict ~35 % / mid-wall / tolerant ~67 %); M4 TASK_SPEC scope includes
+  implementing multi-definition mask evaluation.
+- If a future version wants a physically-honest split, switch to a consistent
+  all-class tolerance and bump `dataset_version` (would shrink the unobserved
+  region toward genuine occlusion only).
+
+Status:
+Adopted (M0). Extends D6.
