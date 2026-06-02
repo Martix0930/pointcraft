@@ -17,6 +17,7 @@ dependencies = [
     "scipy>=1.10",
     "laspy>=2.5",
     "pyyaml>=6.0",
+    "pyproj>=3.6",  # CityGML 6697->6677 reprojection (M0, D5)
 ]
 
 [project.optional-dependencies]

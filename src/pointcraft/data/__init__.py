@@ -2,6 +2,13 @@
 
 See docs/02_DATA_CONTRACT.md and tasks/M0_data_pairing/. (M0)
 """
+from .citygml import (
+    GROUND_LABEL,
+    SURFACE_TYPE_TO_LABEL,
+    TypedSurfaces,
+    load_citygml,
+    parse_citygml,
+)
 from .partial import FEATURE_LAYOUT_V01, load_las_xyz, voxelize_partial
 from .sample import (
     DATASET_VERSION,
@@ -21,6 +28,11 @@ __all__ = [
     "voxelize_partial",
     "load_las_xyz",
     "FEATURE_LAYOUT_V01",
+    "parse_citygml",
+    "load_citygml",
+    "TypedSurfaces",
+    "GROUND_LABEL",
+    "SURFACE_TYPE_TO_LABEL",
     "voxelize_target",
     "load_lod2_meshes",
     "ROOF_LABEL",
