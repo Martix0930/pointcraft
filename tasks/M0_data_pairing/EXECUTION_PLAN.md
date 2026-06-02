@@ -19,11 +19,16 @@ is downloaded but not yet wired in.
 
 ## First end-to-end tile
 
-`09LD1848` (LAS sheet → row 14, col 88).
+**`09LD1874`** (Tokyo-Station core; grids 53394610/611/620/621; ~2061 CityGML
+surfaces; LiDAR 6.39 M pts). This is the tile `configs/tokyo_station.yaml` already
+targets, so M0→M1 stays consistent and the CityGML target can be compared directly
+against the prior OBJ run.
 
-> ⚠ First action in Phase B: confirm in `data/raw/tile_alignment.csv` that
-> `09LD1848` has a corresponding LOD2 / CityGML grid (one of 53394600–622). If it
-> does not map to an on-hand CityGML grid, **stop and pick a tile that does.**
+> ⚠ Resolved at the Phase B gate (2026-06-03): the originally-planned `09LD1848`
+> was **dropped** — `tile_alignment.csv` flags it `in_lod2_citygml=1`, but that is
+> only a bbox overlap and **0** CityGML buildings actually fall inside its
+> footprint. Lesson recorded in `docs/07_GOTCHAS.md`: clip reprojected surfaces to
+> the LAS footprint and count, don't trust the flag.
 
 ## What changed vs. v1 (read before planning)
 
@@ -59,18 +64,18 @@ is downloaded but not yet wired in.
   - `dataset_version = "v0.1"`; pin `feature_layout` (minimal set).
   - Masks promoted to required.
 - `tasks/M0_data_pairing/SESSION_LOG.md` — status → IN PROGRESS; record that data
-  is staged under `data/raw/`, tile = `09LD1848`, target = CityGML.
+  is staged under `data/raw/`, tile = `09LD1874`, target = CityGML.
 - Commit (docs only): `docs(m0): adopt CityGML target (D5), finalize contract`.
 
 **Exit:** decisions + contract committed; no `.py` changed.
 
 ## Phase B — Verify tile + inventory reuse (read + minimal probe)
 
-- Confirm `09LD1848` ↔ CityGML mapping in `tile_alignment.csv` (gate above).
+- Confirm `09LD1874` ↔ CityGML mapping in `tile_alignment.csv` (gate above).
 - Inventory `src/pointcraft/` reuse: which existing modules give us LAS load,
   voxel/grid helpers, OBJ LOD2 parsing (for the fallback + as a structural
   reference for the GML parser), config path resolution. Note in SESSION_LOG.
-- Probe one CityGML file: open the `09LD1848`-matching grid `.gml`, confirm it
+- Probe one CityGML file: open the `09LD1874`-matching grid `.gml`, confirm it
   contains LOD2 `bldg:RoofSurface` / `bldg:WallSurface` / `bldg:GroundSurface`,
   and read its CRS declaration (expect 6697 / lat-lon). Log a few surface counts.
 
@@ -92,10 +97,10 @@ alignment, then voxelize. Don't build voxelization on an unverified reprojection
 - Output an in-memory representation: typed surfaces with 6677 coordinates, ready
   for voxelization. No voxelization in this module.
 
-### C2 — Re-verify alignment on 09LD1848 ⚠ gate
+### C2 — Re-verify alignment on 09LD1874 ⚠ gate
 
 - Reproduce the earlier EW/NS slice calibration, now with CityGML-derived
-  roof/wall/ground vs. LiDAR points, on a couple of buildings in `09LD1848`.
+  roof/wall/ground vs. LiDAR points, on a couple of buildings in `09LD1874`.
 - Confirm LiDAR roof points still sit on CityGML roof surfaces (datum +
   reprojection both correct), and that ground is now labelled ground (the base
   line mislabelled roof under OBJ should now be GroundSurface).
@@ -128,7 +133,7 @@ alignment, then voxelize. Don't build voxelization on an unverified reprojection
 
 ### C7 — .npz writer
 
-- All contract fields + full metadata (`tile_id="09LD1848"`, voxel_size, origin,
+- All contract fields + full metadata (`tile_id="09LD1874"`, voxel_size, origin,
   bounds, grid_shape, `crs="EPSG:6677"`, `source_files=[CityGML grid, LAS sheet]`,
   `dataset_version="v0.1"`, feature_layout).
 
@@ -138,7 +143,7 @@ alignment, then voxelize. Don't build voxelization on an unverified reprojection
 
 ### C9 — `scripts/run_m0.py`
 
-- One command: LAS + CityGML(`09LD1848`) → one `.npz`, end to end, config-driven,
+- One command: LAS + CityGML(`09LD1874`) → one `.npz`, end to end, config-driven,
   paths relative to config.
 
 ## Phase D — Tests (`tests/`)
@@ -159,7 +164,7 @@ Commit granularity (each green, small):
 - `feat(data): LiDAR→partial occupancy (v0.1 feature layout)`
 - `feat(data): CityGML shell→target occupancy + surface-type semantics`
 - `feat(data): observed/unobserved masks + npz writer (data contract)`
-- `feat(scripts): run_m0 end-to-end on 09LD1848 + sanity view`
+- `feat(scripts): run_m0 end-to-end on 09LD1874 + sanity view`
 - `test(m0): round-trip, grid-equality, reprojection, alignment regression`
 
 Then `tasks/M0_data_pairing/SESSION_LOG.md`: status → DONE (or actual); dated
@@ -169,8 +174,8 @@ Final: `docs(m0): session log + handoff to M1`.
 
 ## Definition of done (mirrors ACCEPTANCE, + CityGML specifics)
 
-- [ ] CityGML parsed, reprojected 6697→6677, alignment re-verified on `09LD1848`.
-- [ ] One `.npz` for `09LD1848`, fully automated via `run_m0.py`.
+- [ ] CityGML parsed, reprojected 6697→6677, alignment re-verified on `09LD1874`.
+- [ ] One `.npz` for `09LD1874`, fully automated via `run_m0.py`.
 - [ ] partial/target on identical shared grid (tested).
 - [ ] `.npz` independently loadable; all contract fields + complete metadata.
 - [ ] `sem_target` from CityGML surface types (ground no longer mislabelled).
@@ -183,6 +188,6 @@ Final: `docs(m0): session log + handoff to M1`.
 - ❌ No neural network; no torch / spconv / Minkowski.
 - ❌ No semantic learning — deterministic from CityGML surface types only.
 - ❌ No Minecraft export beyond optional debug preview.
-- ❌ No multi-tile batching system — `09LD1848` proves the contract.
+- ❌ No multi-tile batching system — `09LD1874` proves the contract.
 - ❌ Do not commit real data (`data/raw/`) or generated `.npz`.
 - ❌ Do not recreate a repo-root `pointcraft/`; one package at `src/pointcraft/`.

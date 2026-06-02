@@ -66,6 +66,21 @@ Practical traps to avoid. Add entries as they bite.
   in-project; regenerate the index with `python scripts/build_tile_index.py`.
 - `09LD` sheet decode: `09LD WXYZ` → row(N–S)=`10·W+Y`, col(E–W)=`10·X+Z`.
 
+## CityGML tile coverage: `in_lod2_citygml` is a *bbox* flag, not real coverage
+
+- `tile_alignment.csv`'s `in_lod2_citygml=1` only means the LAS sheet's bbox
+  **overlaps the axis-aligned bbox** of an on-hand LOD2 grid. It does **not**
+  guarantee any CityGML *buildings* actually fall inside the tile.
+- Real example (M0, 2026-06-03): `09LD1848` is flagged `1` (overlaps grid
+  `53394622`), but **0** of 53394622's 7590 surfaces have a centroid inside the
+  tile — the grid's building cluster sits outside the tile, the bboxes merely
+  touch. The planned "first tile" was abandoned for `09LD1874` (Tokyo-Station
+  core, ~2061 surfaces, matches `tokyo_station.yaml`).
+- **Before committing to a tile, clip reprojected CityGML surfaces to the LAS
+  footprint and count them** (`parse_citygml` + centroid-in-bbox), don't trust the
+  flag. Mesh grids in `mesh_index.csv` carry *data-extent* bboxes (irregular), so
+  bbox overlap ≠ geometry overlap.
+
 ## Windows
 
 - Git may warn `LF will be replaced by CRLF` — harmless.

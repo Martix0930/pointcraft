@@ -11,14 +11,16 @@ D5).** The OBJ-based pipeline (v0.1) is complete and runs end-to-end
 masks are inflated by OBJ-geometry artifacts and the OBJ target lacks a ground
 class. Per EXECUTION_PLAN v2 the M0 **target source is now CityGML** (D5):
 semantics are read from surface types, and CityGML is reprojected 6697→6677.
-First/only proof tile = **09LD1848** — Phase B gate **PASSED**: it is effectively
-fully covered by the on-hand `53394622_bldg_6697_2_op.gml` (the listed `53394632`
-is only an adjacent-grid bbox overlap that 53394622 already spans). Real data staged
-under `data/raw/` (git-ignored). **Phases A + B (docs/read-only) DONE this session.**
-GML confirmed: EPSG:6697, 3D, posList axis order **lat,lon,z**; LOD2 present (3101
-buildings; 2044 Roof / 5320 Wall / 226 Ground surfaces). **Next = Phase C1**: write
-`src/pointcraft/data/citygml.py` (typed LOD2 surfaces + 6697→6677 reprojection, add
-`pyproj` dep) — the first code/dep step. The OBJ pipeline stays as fallback/comparison.
+Proof tile = **09LD1874** (Tokyo-Station core; grids 53394610/611/620/621; ~2061
+CityGML surfaces; LiDAR 6.39 M pts; the tile `tokyo_station.yaml` already targets).
+The originally-planned **09LD1848 was dropped at the Phase B gate** — its
+`in_lod2_citygml=1` flag is only a bbox overlap; **0** CityGML buildings actually
+fall in its footprint (gotcha logged in `docs/07_GOTCHAS.md`). Real data staged
+under `data/raw/` (git-ignored). **Phases A, B done; Phase C1 done** (CityGML parser
+`src/pointcraft/data/citygml.py`: typed LOD2 surfaces + 6697→6677 reprojection,
+`pyproj` dep added; validated on real grids). GML confirmed: EPSG:6697, 3D, posList
+axis order **lat,lon,z**. **Next = Phase C2**: re-verify CityGML↔LiDAR alignment on
+09LD1874 (gate) before voxelization. OBJ pipeline stays as fallback/comparison.
 
 M0 delivers `pointcraft.data`: `voxelize_partial` (LiDAR→partial), `voxelize_target`
 (LOD2 shell→target+semantics), `compute_masks` (D4), `build_metadata` +
@@ -47,14 +49,15 @@ Contract finalized for `dataset_version=v0.1`. 28 tests passing.
 
 > Read `CLAUDE.md`, `docs/07_GOTCHAS.md`, `docs/02_DATA_CONTRACT.md`,
 > `docs/06_DECISIONS.md` (incl. D5) and `tasks/M0_data_pairing/EXECUTION_PLAN.md`.
-> Phases A + B are DONE (tile 09LD1848 confirmed on `53394622`; reuse map + GML
-> probe in the Phase B log entry). Execute **Phase C1** only: add `src/pointcraft/
-> data/citygml.py` — parse LOD2 buildings, extract polygons tagged by surface type
-> (`RoofSurface→roof`, `WallSurface→facade`, `GroundSurface→ground`), reproject
-> **6697→6677 honoring the lat,lon,z axis order** (add `pyproj` to deps), keep z
-> unchanged (D3). Output typed surfaces in 6677, **no voxelization** in this module.
-> Then C2 (alignment re-verify gate) before any voxelization. Keep M0 scope (no NN,
-> no semantic learning, no real-data commits). Update this SESSION_LOG.
+> Phases A, B, C1 are DONE. Proof tile is **09LD1874** (09LD1848 was dropped at the
+> gate — see GOTCHAS). CityGML parser `pointcraft.data.parse_citygml` returns typed
+> 6677 surfaces (roof/facade/ground), validated on real grids. Execute **Phase C2**
+> only: re-verify CityGML↔LiDAR alignment on 09LD1874 — load the LAS, parse the
+> tile's CityGML grids (610/611/620/621), clip surfaces to the LAS footprint, and
+> render/compare EW–NS cross-sections (reuse `scripts/render_alignment.py` idiom)
+> to confirm LiDAR roof points sit on CityGML roof surfaces and that ground reads as
+> GroundSurface. This is a **gate** — if misaligned, fix reprojection/datum before
+> C5 voxelization. Keep M0 scope (no NN, no real-data commits). Update this log.
 >
 > (Deferred: M1 baseline, once the CityGML-based `.npz` re-verifies alignment.)
 
@@ -452,3 +455,42 @@ written, GML structure + CRS + axis-order confirmed. No code added.
 **Next: Phase C1** — `src/pointcraft/data/citygml.py` (parse typed LOD2 surfaces +
 6697→6677 reprojection with correct lat/lon axis order; add `pyproj` dep). This is
 the first step that touches `.py` / deps — pause for go-ahead before starting.
+
+> ⚠ **Phase-B follow-up (same day): the 09LD1848 gate was over-optimistic.** The
+> "53394622 covers the tile" conclusion above was a *bbox-overlap* judgement; once
+> C1 could actually reproject and clip the surfaces (below), **0** of 53394622's
+> 7590 surfaces have a centroid inside 09LD1848 — the building cluster sits outside
+> the tile. Tile changed to **09LD1874**. See the C1 entry + `docs/07_GOTCHAS.md`.
+
+### 2026-06-03 — M0 C1: CityGML parser + reprojection; tile switched to 09LD1874
+
+**C1 — `src/pointcraft/data/citygml.py`** (committed; `pyproj>=3.6` added to deps):
+- `parse_citygml(path)` — stdlib `xml.etree` iterparse over a PLATEAU LOD2 bldg
+  file; pulls exterior rings of each semantic surface (`RoofSurface`/`WallSurface`/
+  `GroundSurface`) and reprojects them EPSG:6697→6677. Returns `TypedSurfaces`
+  (`polygons` list of `(n,3)` 6677 rings + aligned int64 `labels`; `.counts()`).
+  `load_citygml(paths)` merges grids. No voxelization here (per plan).
+- **Axis order locked by calibration:** posList is `lat lon z`; reproject with
+  pyproj `always_xy=True` feeding `(lon, lat)` → `(easting=x, northing=y)`. Verified:
+  reprojecting grid 53394622's envelope reproduced its known 6677 extent
+  X[-5324,-4146] Y[-35173,-34191]. z passed through unchanged (D3).
+- Validated on `53394622_bldg_6697_2_op.gml` (34 MB): 0.6 s, 7590 rings
+  {ground 226, roof 2044, facade 5320} — exactly the raw tag counts; reprojected
+  extent within the grid bbox; Z∈[1.0, 92.4] m. 28 existing tests still pass.
+
+**Tile gate re-run with real geometry → 09LD1848 DROPPED.** Clipping the reprojected
+surfaces to each LAS footprint (centroid-in-bbox over all 9 on-hand grids,
+336,382 surfaces):
+- `09LD1848`: **0** surfaces (despite `in_lod2_citygml=1`). The flag is only a
+  bbox-overlap; 53394622's buildings don't actually intersect the tile.
+- Densest tiles: 09LD2815 (15,427), 09LD2817 (14,588), 09LD2805 (13,435) … all with
+  6–7 M LiDAR pts and ~100 % tile coverage.
+- **Chosen: `09LD1874`** (2061 surfaces; grids 53394610/611/620/621; LiDAR 6.39 M).
+  Picked over the denser south tiles for continuity — it's the tile
+  `configs/tokyo_station.yaml` already targets and the one the prior OBJ M0 ran on,
+  so the CityGML target can be compared apples-to-apples against the OBJ result.
+- Logged the bbox-flag trap in `docs/07_GOTCHAS.md`; updated D5 status
+  (`docs/06_DECISIONS.md`) and `EXECUTION_PLAN.md` first-tile to 09LD1874.
+
+**Next: Phase C2** — alignment re-verification gate on 09LD1874 (CityGML roof/wall/
+ground vs LiDAR cross-sections) before any voxelization.

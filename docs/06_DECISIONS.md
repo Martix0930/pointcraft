@@ -269,8 +269,13 @@ Consequences:
   bump it only if the on-disk schema or feature layout changes.
 
 Status:
-Adopted (M0). First tile to re-verify: `09LD1848` (CityGML grid must exist in
-`data/raw/tile_alignment.csv` — Phase B gate).
+Adopted (M0). First tile to re-verify: **`09LD1874`** (Tokyo-Station core, the
+tile `configs/tokyo_station.yaml` already targets; grids 53394610/611/620/621,
+~2061 CityGML surfaces, LiDAR 6.39 M pts). The originally-planned `09LD1848` was
+**dropped at the Phase B gate**: although `tile_alignment.csv` flags it
+`in_lod2_citygml=1`, that flag is only a bbox overlap and **0** CityGML buildings
+actually fall inside its footprint (see `docs/07_GOTCHAS.md`). 09LD1874 also lets
+the CityGML target be compared directly against the prior OBJ run on the same tile.
 
 ---
 
