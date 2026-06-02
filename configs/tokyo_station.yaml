@@ -14,9 +14,17 @@ cell_size: 1.0          # meters per voxel / block
 las:
   - "../data/raw/lidar/09LD1874.las"
 
-# PLATEAU LOD2 textured-mesh tile directories — now in data/raw/lod2/ (9 mesh
-# grids 53394600–622). Higher-accuracy CityGML is staged in data/raw/citygml/
-# for a future switch (needs a GML parser + 6697→6677 reprojection).
+# M0 target source = CityGML (D5). The LOD2 grids covering 09LD1874 are
+# 53394610/611/620/621; semantics (roof/facade/ground) come from the surface
+# types. Delivered in EPSG:6697 and reprojected to 6677 by pointcraft.data.citygml.
+citygml_tiles:
+  - "../data/raw/citygml/udx/bldg/53394610_bldg_6697_2_op.gml"
+  - "../data/raw/citygml/udx/bldg/53394611_bldg_6697_2_op.gml"
+  - "../data/raw/citygml/udx/bldg/53394620_bldg_6697_2_op.gml"
+  - "../data/raw/citygml/udx/bldg/53394621_bldg_6697_2_op.gml"
+
+# OBJ LOD2 textured-mesh tile directories (data/raw/lod2/, 9 grids 53394600–622).
+# Retained only as the --target obj FALLBACK / comparison path (pre-D5).
 lod2_tiles:
   - "../data/raw/lod2/53394611"
   - "../data/raw/lod2/53394621"

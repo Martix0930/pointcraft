@@ -143,6 +143,111 @@ def voxelize_target(
     return coords.astype(np.int32), occ_target, sem_target
 
 
+def _triangulate_ring(ring: np.ndarray):
+    """Fan-triangulate a planar polygon ring (n>=3, may be closed) -> list of (3,3).
+
+    Skips the degenerate triangle formed by a closing duplicate vertex via the
+    caller's area check.
+    """
+    v0 = ring[0]
+    return [np.stack([v0, ring[i], ring[i + 1]]) for i in range(1, ring.shape[0] - 1)]
+
+
+def voxelize_citygml_target(
+    surfaces,
+    grid: VoxelGrid,
+    *,
+    spacing: float | None = None,
+    seed: int = 0,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Voxelize CityGML typed LOD2 surfaces (shell, D2) into target occ + semantics.
+
+    Unlike :func:`voxelize_target` (OBJ + face-normal heuristic), semantics come
+    **directly from the CityGML surface type** carried by ``surfaces`` (D5): roof
+    (3) / facade (4) / ground (1), with no geometry inference — so a building base
+    is ``ground``, never a mislabelled roof.
+
+    Args:
+        surfaces: a ``pointcraft.data.citygml.TypedSurfaces`` (or any object with
+                  ``.polygons`` list of ``(n_i,3)`` rings and aligned ``.labels``
+                  int array), already reprojected to the grid CRS (EPSG:6677).
+        grid:     the shared ``VoxelGrid`` (same instance as the partial input).
+        spacing:  surface sample spacing in meters (default ``voxel_size/2``).
+        seed:     RNG seed (deterministic output).
+
+    Returns:
+        coords_target: (M, 3) int32 unique voxel indices, sorted.
+        occ_target:    (M,)  uint8, all 1 (occupied shell voxels only).
+        sem_target:    (M,)  int64 semantic label per voxel (from surface type;
+                       per-voxel majority vote of samples, ties -> lower label id).
+    """
+    if spacing is None:
+        spacing = grid.voxel_size / 2.0
+    rng = np.random.default_rng(seed)
+
+    pts_chunks: list[np.ndarray] = []
+    lab_chunks: list[np.ndarray] = []
+    for ring, label in zip(surfaces.polygons, np.asarray(surfaces.labels)):
+        ring = np.asarray(ring, dtype=np.float64)
+        if ring.shape[0] < 3:
+            continue
+        label = int(label)
+        for tri in _triangulate_ring(ring):
+            cross = np.cross(tri[1] - tri[0], tri[2] - tri[0])
+            norm = float(np.linalg.norm(cross))
+            if norm <= 0.0:
+                continue  # degenerate (incl. closing-duplicate) triangle
+            area = 0.5 * norm
+            n = int(np.clip(np.ceil(area / (spacing * spacing)), 1, 200_000))
+            pts_chunks.append(_sample_triangle(tri, n, rng))
+            lab_chunks.append(np.full(n, label, dtype=np.int64))
+
+    if not pts_chunks:
+        return (
+            np.zeros((0, 3), dtype=np.int32),
+            np.zeros((0,), dtype=np.uint8),
+            np.zeros((0,), dtype=np.int64),
+        )
+
+    pts = np.concatenate(pts_chunks, axis=0)
+    labels = np.concatenate(lab_chunks, axis=0)
+
+    idx = grid.world_to_index(pts)
+    inb = grid.in_bounds(idx)
+    n_drop = int((~inb).sum())
+    if n_drop:
+        log.info("citygml target: dropped %d/%d out-of-range samples", n_drop, len(pts))
+    idx = idx[inb]
+    labels = labels[inb]
+    if idx.shape[0] == 0:
+        return (
+            np.zeros((0, 3), dtype=np.int32),
+            np.zeros((0,), dtype=np.uint8),
+            np.zeros((0,), dtype=np.int64),
+        )
+
+    coords, inverse = np.unique(idx, axis=0, return_inverse=True)
+    inverse = np.asarray(inverse).reshape(-1)
+    m = coords.shape[0]
+
+    # Vote per voxel among the label ids actually present; ascending label order
+    # makes argmax break ties toward the LOWER id (deterministic).
+    present = np.unique(labels)  # sorted ascending
+    votes = np.zeros((m, present.shape[0]), dtype=np.int64)
+    for col, lab in enumerate(present):
+        sel = labels == lab
+        np.add.at(votes[:, col], inverse[sel], 1)
+    sem_target = present[np.argmax(votes, axis=1)].astype(np.int64)
+
+    occ_target = np.ones(m, dtype=np.uint8)
+    counts = {int(l): int((sem_target == l).sum()) for l in present}
+    log.info(
+        "citygml target: %d samples -> %d shell voxels by label %s",
+        idx.shape[0], m, counts,
+    )
+    return coords.astype(np.int32), occ_target, sem_target
+
+
 def load_lod2_meshes(tile_dirs_or_objs) -> tuple[np.ndarray, list]:
     """Load + merge one or more LOD2 OBJ meshes into (verts, faces).
 

@@ -33,8 +33,10 @@ import numpy as np
 from pointcraft.data import (
     build_metadata,
     compute_masks,
+    load_citygml,
     load_las_xyz,
     load_lod2_meshes,
+    voxelize_citygml_target,
     voxelize_partial,
     voxelize_target,
     write_sample_npz,
@@ -60,8 +62,14 @@ def _load_points(path: str) -> np.ndarray:
 
 
 def _resolve_args(args: argparse.Namespace):
-    """Return (las_paths, lod2_paths, tile_id, crs, voxel_size)."""
+    """Return (las_paths, target_paths, tile_id, crs, voxel_size).
+
+    ``target_paths`` are CityGML .gml files when ``--target citygml`` (default,
+    D5) or OBJ dirs/files when ``--target obj`` (fallback).
+    """
     if args.fixture:
+        # The tiny fixture is an OBJ cube; force the OBJ target path for it.
+        args.target = "obj"
         return (
             [os.path.join(FIXTURE_DIR, "tiny_lidar_points.csv")],
             [os.path.join(FIXTURE_DIR, "tiny_lod2_cube.obj")],
@@ -69,27 +77,34 @@ def _resolve_args(args: argparse.Namespace):
             args.crs or "LOCAL_SYNTHETIC",
             args.voxel_size or 1.0,
         )
-    las, lod2, crs, vsize, tile = args.las, args.lod2, args.crs, args.voxel_size, args.tile_id
+    las, crs, vsize, tile = args.las, args.crs, args.voxel_size, args.tile_id
+    target = args.citygml if args.target == "citygml" else args.lod2
     if args.config:
         cfg = load_config(args.config)
         base = os.path.dirname(os.path.abspath(args.config))
         if not las:
             las = [resolve_path(p, base) for p in (cfg.get("las") or [])]
-        if not lod2:
-            lod2 = [resolve_path(p, base) for p in (cfg.get("lod2_tiles") or [])]
+        if not target:
+            key = "citygml_tiles" if args.target == "citygml" else "lod2_tiles"
+            target = [resolve_path(p, base) for p in (cfg.get(key) or [])]
         crs = crs or cfg.get("crs")
         vsize = vsize or cfg.get("cell_size")
         tile = tile or cfg.get("name")
-    if not las or not lod2:
-        raise SystemExit("need --las and --lod2 (or --config, or --fixture)")
-    return las, lod2, tile or "tile", crs or "UNKNOWN", float(vsize or 1.0)
+    if not las or not target:
+        raise SystemExit(
+            f"need --las and --{args.target} (or --config, or --fixture)"
+        )
+    return las, target, tile or "tile", crs or "UNKNOWN", float(vsize or 1.0)
 
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description="M0 LiDAR+LOD2 → paired voxel .npz")
-    ap.add_argument("--config", help="YAML config (las, lod2_tiles, crs, cell_size, name)")
+    ap.add_argument("--config", help="YAML config (las, citygml_tiles/lod2_tiles, crs, cell_size, name)")
     ap.add_argument("--las", nargs="+", help="LiDAR file(s) .las/.laz/.csv")
-    ap.add_argument("--lod2", nargs="+", help="LOD2 tile dir(s) or .obj file(s)")
+    ap.add_argument("--target", choices=["citygml", "obj"], default="citygml",
+                    help="target source (default citygml, D5; obj = fallback)")
+    ap.add_argument("--citygml", nargs="+", help="CityGML .gml file(s) (target=citygml)")
+    ap.add_argument("--lod2", nargs="+", help="LOD2 tile dir(s) or .obj file(s) (target=obj)")
     ap.add_argument("--out", required=True, help="output .npz path")
     ap.add_argument("--tile-id")
     ap.add_argument("--crs")
@@ -98,7 +113,7 @@ def main(argv=None) -> int:
     ap.add_argument("--viz", action="store_true", help="also save a PNG sanity view")
     args = ap.parse_args(argv)
 
-    las_paths, lod2_paths, tile_id, crs, voxel_size = _resolve_args(args)
+    las_paths, target_paths, tile_id, crs, voxel_size = _resolve_args(args)
     os.makedirs(os.path.dirname(os.path.abspath(args.out)) or ".", exist_ok=True)
 
     # --- partial (LiDAR) ---
@@ -115,18 +130,42 @@ def main(argv=None) -> int:
     coords_p, feats_p = voxelize_partial(pts, grid)
     print(f"[partial] {coords_p.shape[0]:,} occupied voxels, feats {feats_p.shape}")
 
-    # --- target (LOD2 shell) ---
-    verts, faces = load_lod2_meshes(lod2_paths)
-    coords_t, occ_t, sem_t = voxelize_target(verts, faces, grid)
-    print(f"[target]  {coords_t.shape[0]:,} shell voxels "
-          f"(roof {(sem_t == 3).sum():,}, facade {(sem_t == 4).sum():,})")
+    # --- target (shell, D2) ---
+    if args.target == "citygml":
+        # Parse + merge the tile's CityGML grids, reprojected to the grid CRS,
+        # then keep only surfaces whose ring centroid lands in the grid XY extent
+        # (the grids cover more than one tile) before voxelizing.
+        surfaces = load_citygml(target_paths)
+        gx0, gy0 = grid.origin[0], grid.origin[1]
+        gx1 = gx0 + grid.shape[0] * voxel_size
+        gy1 = gy0 + grid.shape[1] * voxel_size
+        keep_p, keep_l = [], []
+        for ring, lab in zip(surfaces.polygons, surfaces.labels):
+            cx, cy = ring[:, 0].mean(), ring[:, 1].mean()
+            if gx0 <= cx <= gx1 and gy0 <= cy <= gy1:
+                keep_p.append(ring)
+                keep_l.append(lab)
+        from types import SimpleNamespace
+        surfaces = SimpleNamespace(
+            polygons=keep_p, labels=np.array(keep_l, dtype=np.int64)
+        )
+        print(f"[citygml] {len(keep_p):,} surfaces inside tile (of {len(target_paths)} grids)")
+        coords_t, occ_t, sem_t = voxelize_citygml_target(surfaces, grid)
+        print(f"[target]  {coords_t.shape[0]:,} shell voxels "
+              f"(roof {(sem_t == 3).sum():,}, facade {(sem_t == 4).sum():,}, "
+              f"ground {(sem_t == 1).sum():,})")
+    else:
+        verts, faces = load_lod2_meshes(target_paths)
+        coords_t, occ_t, sem_t = voxelize_target(verts, faces, grid)
+        print(f"[target]  {coords_t.shape[0]:,} shell voxels "
+              f"(roof {(sem_t == 3).sum():,}, facade {(sem_t == 4).sum():,})")
 
     # --- masks + write ---
     observed, unobserved = compute_masks(coords_t, coords_p, grid)
     print(f"[masks]   observed {int(observed.sum()):,}, "
           f"unobserved {int(unobserved.sum()):,} "
           f"({100*unobserved.mean():.1f}% of target = completion region)")
-    src_files = [os.path.basename(p) for p in (*las_paths, *lod2_paths)]
+    src_files = [os.path.basename(p) for p in (*las_paths, *target_paths)]
     meta = build_metadata(grid, tile_id=tile_id, crs=crs, source_files=src_files)
     write_sample_npz(
         args.out,

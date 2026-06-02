@@ -21,6 +21,7 @@ from .target import (
     FACADE_LABEL,
     ROOF_LABEL,
     load_lod2_meshes,
+    voxelize_citygml_target,
     voxelize_target,
 )
 
@@ -34,6 +35,7 @@ __all__ = [
     "GROUND_LABEL",
     "SURFACE_TYPE_TO_LABEL",
     "voxelize_target",
+    "voxelize_citygml_target",
     "load_lod2_meshes",
     "ROOF_LABEL",
     "FACADE_LABEL",
