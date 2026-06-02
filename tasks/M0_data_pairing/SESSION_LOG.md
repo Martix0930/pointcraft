@@ -5,8 +5,25 @@ Append a dated entry at the end of every session. Keep the "Current status" and
 
 ---
 
-## Current status: **IN PROGRESS — re-targeting M0 to CityGML (EXECUTION_PLAN v2,
-D5).** The OBJ-based pipeline (v0.1) is complete and runs end-to-end
+## Current status: **DONE (v0.1, CityGML target — EXECUTION_PLAN v2 / D5).**
+`scripts/run_m0.py --target citygml` turns raw LiDAR + CityGML into one contract
+`.npz` end-to-end on a shared `VoxelGrid`, with surface-type semantics
+(roof/facade/**ground**) and observed/unobserved masks. **32 tests passing.**
+Phases A–E complete for the CityGML re-target; the OBJ path is retained as the
+`--target obj` fallback. `dataset_version` stays `v0.1` (no schema change — only
+the target source + the `ground`(1) label changed).
+
+**Carried-over known limitation (NOT fixed here):** `compute_masks` still matches
+voxels by **exact (i,j,k)**, so ~55 % of roof voxels read "unobserved" (a roof
+surface at k=40 vs a roof point at k=39 miss by <1 m). The audit's z-tolerance fix
+remains **on hold pending human verdict**; D5 only fixed *semantics* (ground is now
+its own class, no longer mislabelled roof). Total unobserved is 63.6 % (was 76.1 %
+under OBJ); facade 61.8 % / ground 89.4 % unobserved are physically genuine
+(walls + under-building bases are unseen from the air); the inflated part is roof.
+
+<details><summary>Prior status (OBJ v0.1, superseded)</summary>
+
+The OBJ-based pipeline (v0.1) was complete and ran end-to-end
 (`scripts/run_m0.py`, 28 tests), but its alignment audit (entry below) showed the
 masks are inflated by OBJ-geometry artifacts and the OBJ target lacks a ground
 class. Per EXECUTION_PLAN v2 the M0 **target source is now CityGML** (D5):
@@ -21,45 +38,53 @@ under `data/raw/` (git-ignored). **Phases A, B done; Phase C1 done** (CityGML pa
 `pyproj` dep added; validated on real grids). GML confirmed: EPSG:6697, 3D, posList
 axis order **lat,lon,z**. **Next = Phase C2**: re-verify CityGML↔LiDAR alignment on
 09LD1874 (gate) before voxelization. OBJ pipeline stays as fallback/comparison.
+</details>
 
-M0 delivers `pointcraft.data`: `voxelize_partial` (LiDAR→partial), `voxelize_target`
-(LOD2 shell→target+semantics), `compute_masks` (D4), `build_metadata` +
-`write_sample_npz`; on the shared `pointcraft.voxelization.VoxelGrid`. Driven
-end-to-end by `scripts/run_m0.py` (config / explicit / `--fixture`, `--viz`).
-Contract finalized for `dataset_version=v0.1`. 28 tests passing.
+M0 delivers `pointcraft.data`: `parse_citygml`/`load_citygml` (GML→typed 6677
+surfaces), `voxelize_partial` (LiDAR→partial), `voxelize_citygml_target` (CityGML
+shell→target + surface-type semantics, D5) with `voxelize_target` (OBJ) kept as the
+fallback, `compute_masks` (D4), `build_metadata` + `write_sample_npz`; all on the
+shared `pointcraft.voxelization.VoxelGrid`. Driven end-to-end by `scripts/run_m0.py`
+(`--target citygml|obj`, config / explicit / `--fixture`, `--viz`). Contract
+finalized for `dataset_version=v0.1`. **32 tests passing.**
 
-## Known limitations (M0 v0.1)
+## Known limitations (M0 v0.1, CityGML target)
 
-- **Building bottom labelled roof.** Semantics come from face normal |n_z|; a
-  building's near-horizontal bottom face is labelled roof(3). Rare/benign in
-  PLATEAU LOD2; revisit if it pollutes metrics.
-- **Sloped-roof threshold.** `roof_nz=0.7` splits roof/facade; steep roofs near
-  the cutoff may flip. Tune per-source if needed.
-- **No terrain/vegetation target.** Target is the LOD2 building shell only
-  (classes 3/4). Ground(1)/veg(5) need a terrain source (DEM) — future version.
-- **No per-face XY pre-cull.** `voxelize_target` samples all faces before
-  clipping → ~18 s for the real tile. Fine for one tile; add a bbox reject if
-  batching many tiles (M2+).
-- **z aggregation.** `height` is mean z (robust); raw LiDAR has rare high
-  outliers (Phase B). No DTM/height-above-ground in v0.1 (absolute z, D3).
-- **Grid from points.** Callers building a grid from raw point min/max must use
-  an exclusive upper bound (run_m0 does) or max-boundary points are dropped.
+- **Roof masks inflated by exact-voxel matching (the open item).** `compute_masks`
+  matches observed by exact `(i,j,k)`, so ~55 % of roof voxels read "unobserved"
+  even though aerial LiDAR sees roofs (a <1 m k-quantization miss). The audit's
+  ±1-voxel z-tolerance fix is **on hold pending human verdict**; applying it would
+  change the mask definition → bump `dataset_version`. Facade (61.8 %) and ground
+  (89.4 %) unobserved are genuine (walls + under-building bases unseen from air).
+- **`ground` = building footprint base, not terrain.** It comes from CityGML
+  `GroundSurface`, which is **sparse** (open-bottomed PLATEAU buildings; ~39/2061
+  surfaces on this tile). True terrain ground / vegetation still need a DEM/LiDAR
+  classes — future `dataset_version`.
+- **North-edge sliver (tile 09LD1874).** A few buildings near a tile edge may live
+  in a neighbouring CityGML grid; current run uses grids 610/611/620/621. Benign.
+- **Per-surface XY pre-cull.** `run_m0` clips surfaces by ring centroid to the grid
+  extent before `voxelize_citygml_target`; whole-surface sampling is still O(faces).
+  Fine for one tile; add a bbox reject if batching (M2+).
+- **z aggregation.** `height` is mean z (robust to rare high LiDAR outliers). No
+  DTM / height-above-ground in v0.1 (absolute z, D3).
+- **Grid from points.** Callers building a grid from raw point min/max must use an
+  exclusive upper bound (run_m0 does) or max-boundary points are dropped.
+- **OBJ fallback caveats (`--target obj`).** The legacy normal-heuristic path still
+  mislabels building bottoms as roof and is sensitive to `roof_nz=0.7`; superseded
+  by CityGML for the real target.
 
 ## Next recommended prompt for Claude Code
 
-> Read `CLAUDE.md`, `docs/07_GOTCHAS.md`, `docs/02_DATA_CONTRACT.md`,
-> `docs/06_DECISIONS.md` (incl. D5) and `tasks/M0_data_pairing/EXECUTION_PLAN.md`.
-> Phases A, B, C1 are DONE. Proof tile is **09LD1874** (09LD1848 was dropped at the
-> gate — see GOTCHAS). CityGML parser `pointcraft.data.parse_citygml` returns typed
-> 6677 surfaces (roof/facade/ground), validated on real grids. Execute **Phase C2**
-> only: re-verify CityGML↔LiDAR alignment on 09LD1874 — load the LAS, parse the
-> tile's CityGML grids (610/611/620/621), clip surfaces to the LAS footprint, and
-> render/compare EW–NS cross-sections (reuse `scripts/render_alignment.py` idiom)
-> to confirm LiDAR roof points sit on CityGML roof surfaces and that ground reads as
-> GroundSurface. This is a **gate** — if misaligned, fix reprojection/datum before
-> C5 voxelization. Keep M0 scope (no NN, no real-data commits). Update this log.
->
-> (Deferred: M1 baseline, once the CityGML-based `.npz` re-verifies alignment.)
+> Read `CLAUDE.md`, `docs/02_DATA_CONTRACT.md`, `docs/06_DECISIONS.md` (incl. D5)
+> and `tasks/M0_data_pairing/`. **M0 (CityGML, v0.1) is DONE**: paired samples are
+> produced by `python scripts/run_m0.py --config configs/tokyo_station.yaml
+> --out outputs/m0/tokyo_citygml.npz` (contract `.npz`, surface-type semantics +
+> masks). Before building on the masks, **decide the open `compute_masks`
+> z-tolerance question** (the alignment audit + the "roof masks inflated" limitation
+> above): if you adopt a ±1-voxel observed tolerance and/or clip the target to the
+> LiDAR-covered footprint, log it in `docs/06_DECISIONS.md` and bump
+> `dataset_version`. Then begin **M1** (`tasks/M1_deterministic_baseline/`) scored
+> against this `.npz`. Keep no-NN scope until M2; don't commit real data / `.npz`.
 
 ---
 
@@ -525,3 +550,40 @@ and are reused unchanged.
 sample the typed rings onto the shared `VoxelGrid` → `coords_target` / `occ_target`
 (=1) / `sem_target` (roof 3 / facade 4 / ground 1 from surface type, no normal
 heuristic). Then C6 masks (reuse), C7 writer (reuse), C9 `run_m0` wiring + C8 viz.
+
+### 2026-06-03 — M0 C5–E: CityGML target voxelizer, run_m0 wiring, tests; M0 DONE
+
+- **C5** `pointcraft.data.voxelize_citygml_target(surfaces, grid)` (in `target.py`):
+  fan-triangulates each typed CityGML ring, barycentric-samples onto the shared
+  `VoxelGrid` (shell, D2), merges with `np.unique`; per-voxel label = majority vote
+  of sample surface-types (ties → lower id), **no normal heuristic**. Label-agnostic
+  (no circular import with `citygml.py`). Exported.
+- **C6/C7** reused unchanged: `compute_masks` (D4), `build_metadata`,
+  `write_sample_npz`.
+- **C9** `scripts/run_m0.py`: added `--target {citygml,obj}` (default citygml).
+  CityGML path = `load_citygml(grids)` → clip surfaces by ring centroid to the grid
+  XY extent → `voxelize_citygml_target`. `configs/tokyo_station.yaml` gained
+  `citygml_tiles` (610/611/620/621); `lod2_tiles` kept for the obj fallback. The
+  tiny fixture forces the obj path.
+- **C8** `--viz` sanity PNG produced and eyeballed (height map / top-down semantic /
+  vertical slice) — structurally correct.
+- **Real 09LD1874 end-to-end** (`--target citygml`): grid 400×300×222 (26.6 M
+  voxels); partial 543,803; CityGML 2061 surfaces → **407,269 shell voxels**
+  (roof 69,845 / facade 294,343 / ground 43,081); masks observed 148,333 /
+  **unobserved 258,936 (63.6 %)**. NPZ 4.5 MB, reloads via `numpy.load`. Per-class
+  observed: roof 44.8 % / facade 38.2 % / ground 10.6 % (see "roof masks inflated"
+  limitation — exact-voxel matching, fix on hold).
+- **Phase D tests** `tests/test_citygml.py` (4): tiny-GML parse → RoofSurface label,
+  reprojection axis-order lock vs pyproj reference (lat,lon,z → easting,northing,z;
+  z passthrough), synthetic ground/roof/wall voxelization (labels {1,3,4}, occ=1,
+  ground@k0/roof@top/wall mid), empty case. **Full suite 32 passing.**
+- **ACCEPTANCE (CityGML specifics):** CityGML parsed + reprojected 6697→6677,
+  alignment re-verified on 09LD1874 (C2 gate); one automated `.npz` via run_m0;
+  partial/target on the same grid; independently loadable with all contract fields +
+  metadata (`dataset_version=v0.1`); `sem_target` from surface types (ground no
+  longer mislabelled); masks stored; tests + sanity viz; docs updated. **Met.**
+- Status → **DONE (v0.1, CityGML)**. Commit sequence this session: docs(A) →
+  docs(B) → feat(C1 parser) → docs(tile-switch) → feat(C2 gate) → feat(C5+run_m0) →
+  test(D) → this handoff.
+- **Open item before relying on masks / M1:** the `compute_masks` exact-voxel
+  z-tolerance decision (above). M1 is otherwise unblocked.
