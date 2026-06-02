@@ -28,7 +28,11 @@ experiments/*/outputs/
 *.mtl
 *.npz
 *.npy
-data/
+# Local large-dataset area: ignore all contents, but keep the README that
+# documents the convention (data itself never gets committed).
+!data/
+data/*
+!data/README.md
 raw/
 raw_data/
 # but the `data` source subpackage is code, not a dataset dir
