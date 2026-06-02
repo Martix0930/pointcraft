@@ -494,3 +494,34 @@ surfaces to each LAS footprint (centroid-in-bbox over all 9 on-hand grids,
 
 **Next: Phase C2** — alignment re-verification gate on 09LD1874 (CityGML roof/wall/
 ground vs LiDAR cross-sections) before any voxelization.
+
+### 2026-06-03 — M0 C2: CityGML↔LiDAR alignment gate on 09LD1874 → PASSED ✓
+
+Added `scripts/verify_alignment_citygml.py` (QA; reuses `parse_citygml` +
+`target._sample_triangle`, fan-triangulating each typed ring). Loads LAS
+09LD1874 (6,385,968 pts), parses+merges the tile's 4 CityGML grids
+(53394610/611/620/621), clips surfaces to the LAS footprint
+(**2061 surfaces: roof 651 / facade 1371 / ground 39**), then:
+
+- **Quantitative z-gate** (`LiDAR_top − CityGML_roof` over 11,245 shared 2 m
+  cells): **median −0.04 m**, p10 −1.37, p90 +4.55, mean +3.87; **58 % within
+  ±1 m**. Median ≈ 0 ⇒ no datum/reprojection offset (better than the Phase B OBJ
+  gate's +0.32 m). The positive tail/mean is LiDAR over building footprints
+  (trees/rooftop clutter CityGML doesn't model) — same benign pattern as before.
+- **Visual cross-sections** (`outputs/m0/align_citygml/bldg{0..3}.png`,
+  git-ignored): blue CityGML walls coincide with the LiDAR vertical faces; red
+  roof sits on the LiDAR point-tops (podium roofs clearly; tower-top caps fall
+  outside the thin 2 m centre slab but are covered by the z-gate); **green
+  GroundSurface sits exactly on the LiDAR ground at the base — and the base is
+  green (ground), not red (roof): the OBJ normal-heuristic "base→roof" bug is
+  gone (D5 delivered).**
+
+**Gate verdict: PASSED.** Datum + 6697→6677 reprojection both correct; semantics
+now come from CityGML surface type with ground correctly distinguished. Cleared to
+proceed to voxelization. C3 (`VoxelGrid`) and C4 (`voxelize_partial`) already exist
+and are reused unchanged.
+
+**Next: Phase C5** — `voxelize_target` from CityGML typed surfaces (shell, D2):
+sample the typed rings onto the shared `VoxelGrid` → `coords_target` / `occ_target`
+(=1) / `sem_target` (roof 3 / facade 4 / ground 1 from surface type, no normal
+heuristic). Then C6 masks (reuse), C7 writer (reuse), C9 `run_m0` wiring + C8 viz.
