@@ -29,6 +29,37 @@ FIX = REPO / "test_data" / "m0_data_pairing"
 BOUNDS = [0.0, 0.0, 0.0, 4.0, 4.0, 4.0]
 VOXEL_SIZE = 1.0
 
+
+def test_class_aware_masks_v02():
+    """D6 / v0.2: z-tolerance rescues a quantization-straddled roof; a facade is
+    observed only on an exact mid-wall hit (ground/roof-clip hits excluded)."""
+    grid = VoxelGrid.from_bounds([0, 0, 0, 10, 1, 10], 1.0)
+    # One building column (i=2): ground@k0, facade k1..5, roof@k6.
+    ct = np.array(
+        [[2, 0, 0], [2, 0, 1], [2, 0, 2], [2, 0, 3], [2, 0, 4], [2, 0, 5], [2, 0, 6]],
+        dtype=np.int32,
+    )
+    sem = np.array([1, 4, 4, 4, 4, 4, 3], dtype=np.int64)  # ground/facade*5/roof
+    # Partial: exact mid-wall facade hit (k3); exact base facade hit (k1, a
+    # ground-clip); a roof point one voxel above the roof (k7, z-quantization).
+    cp = np.array([[2, 0, 3], [2, 0, 1], [2, 0, 7]], dtype=np.int32)
+
+    def row(i, j, k):
+        return int(np.where((ct == [i, j, k]).all(1))[0][0])
+
+    obs_v02, unobs = compute_masks(ct, cp, grid, sem_target=sem)
+    obs_exact, _ = compute_masks(ct, cp, grid)  # sem=None -> legacy exact
+
+    # col_base=0, col_top=6, wall_margin=2 -> mid-wall facade is k in [2,4].
+    assert obs_v02[row(2, 0, 3)] == 1            # mid-wall facade, exact hit
+    assert obs_v02[row(2, 0, 1)] == 0            # base facade hit excluded (genuine)
+    assert obs_v02[row(2, 0, 6)] == 1            # roof rescued by z-tol (point at k7)
+    assert (obs_v02 + unobs == 1).all()          # complementary
+
+    # Legacy exact differs exactly where the v0.2 rule intervenes:
+    assert obs_exact[row(2, 0, 1)] == 1          # exact hit counts under v0.1
+    assert obs_exact[row(2, 0, 6)] == 0          # no exact roof hit under v0.1
+
 CONTRACT_FIELDS = {
     "coords_partial": np.int32,
     "feats_partial": np.float32,
@@ -114,7 +145,7 @@ def test_write_and_reload_roundtrip(tmp_path, grid, pieces):
     assert md["voxel_size"] == VOXEL_SIZE
     assert md["grid_shape"] == [4, 4, 4]
     assert md["origin"] == [0.0, 0.0, 0.0]
-    assert md["dataset_version"] == "v0.1"
+    assert md["dataset_version"] == "v0.2"
     assert md["feature_layout"] == FEATURE_LAYOUT_V01
     # shapes are mutually consistent
     M = z["coords_target"].shape[0]

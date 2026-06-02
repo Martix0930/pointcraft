@@ -161,7 +161,9 @@ def main(argv=None) -> int:
               f"(roof {(sem_t == 3).sum():,}, facade {(sem_t == 4).sum():,})")
 
     # --- masks + write ---
-    observed, unobserved = compute_masks(coords_t, coords_p, grid)
+    # Class-aware masks (D6, v0.2): z-tolerance for horizontal surfaces, genuine
+    # mid-wall for facades. (OBJ target has no ground class but shares labels 3/4.)
+    observed, unobserved = compute_masks(coords_t, coords_p, grid, sem_target=sem_t)
     print(f"[masks]   observed {int(observed.sum()):,}, "
           f"unobserved {int(unobserved.sum()):,} "
           f"({100*unobserved.mean():.1f}% of target = completion region)")

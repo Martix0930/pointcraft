@@ -4,11 +4,12 @@ This defines the **planned** on-disk format for paired voxel training samples
 produced by M0. One `.npz` file = one tile sample. This contract is the interface
 between M0 (data pairing) and M2+ (learning).
 
-> Status: **finalized for `dataset_version = v0.1`** (M0 decisions D1–D5 locked in
+> Status: **finalized for `dataset_version = v0.2`** (M0 decisions D1–D6 locked in
 > `docs/06_DECISIONS.md`). The target source is **CityGML** (D5), not OBJ; building
 > semantics come from CityGML surface types. The on-disk field set / feature layout
-> are unchanged, so `dataset_version` stays `v0.1`. Further schema changes require
-> bumping `dataset_version`.
+> are unchanged from v0.1, but the **observed/unobserved mask definition changed**
+> (D6, class-aware) so the version is bumped to `v0.2`. Further schema or mask-rule
+> changes require bumping `dataset_version`.
 
 ## `.npz` fields
 
@@ -19,7 +20,7 @@ between M0 (data pairing) and M2+ (learning).
 | `coords_target`  | int32 | `[M, 3]` | Voxel indices for the **complete** target. Under the **shell** representation (D2) these are the CityGML LOD2 *surface* voxels — no interior fill. |
 | `occ_target`     | uint8 | `[M]` | Occupancy label per `coords_target` entry. Every stored target voxel is occupied, so this is `1` for all `M` entries in v0.1 (free voxels are not stored). |
 | `sem_target`     | int64 | `[M]` | Semantic class id per `coords_target` entry (see label table). `255` (`ignore_index`) for unknown. |
-| `observed_mask`  | uint8 | `[M]` | **Required** (D4). `1` if this target voxel was directly observed by the partial input (`coords_target ∈ coords_partial`). |
+| `observed_mask`  | uint8 | `[M]` | **Required** (D4). `1` if this target voxel was directly observed by the partial input, under the **class-aware rule (D6, v0.2)** below. |
 | `unobserved_mask`| uint8 | `[M]` | **Required** (D4). `1` if this target voxel was **never** observed (the completion region). Equals `occupied_target ∧ ¬observed`, i.e. `1 - observed_mask` over the occupied target. |
 | `metadata`       | (see below) | — | Saved as a 0-d object array or sidecar JSON. |
 
@@ -28,11 +29,25 @@ Notes:
 - `feats_partial` column count `C` and column order are fixed by the dataset
   version string in `metadata` and documented in the feature layout below.
 - `observed_mask` / `unobserved_mask` enable the M4 unobserved-region metrics.
-  Per D4 they are **required** in v0.1 and computed in M0 while partial and target
-  share one grid in a single pass — not recomputed downstream (a later
-  intersection corrupts the headline metric on boundary near-misses).
+  Per D4 they are **required** and computed in M0 while partial and target share one
+  grid in a single pass — not recomputed downstream (a later intersection corrupts
+  the headline metric on boundary near-misses).
 
-### Feature layout (`dataset_version = v0.1`)
+**Observed rule (D6, `v0.2`, class-aware)** — `compute_masks` marks a target voxel
+observed by its semantic class (`sem_target`):
+- **Horizontal** (roof `3` / ground `1`): observed if a partial voxel exists at the
+  same `(i,j)` within `|Δk| ≤ z_tol` (default `z_tol = 1`). Corrects the sub-voxel
+  z-quantization that otherwise flags seen roofs "unobserved".
+- **Vertical** (facade `4`): observed only on an **exact** partial hit in a *genuine
+  mid-wall* cell — `≥ wall_margin` voxels from the column's lowest and highest target
+  voxel (default `wall_margin = 2`) — excluding ground/roof points that merely clip
+  the base/top wall voxel.
+- Legacy exact set-membership (v0.1) remains available via `sem_target=None`.
+- Reference numbers (tile 09LD1874): observed roof 70 % / facade ~35 % / ground 18 %;
+  total unobserved 61 %. The facade figure reflects this LiDAR's real (sparse)
+  oblique facade coverage, not an artifact (D6 research note).
+
+### Feature layout (`dataset_version = v0.2`, unchanged from v0.1)
 
 `feature_layout = ["height", "point_count"]` (`C = 2`):
 
@@ -55,7 +70,7 @@ later `dataset_version`, not added in v0.1.
 | `grid_shape` | int[3] | `(I, J, K)` voxel-grid dimensions. |
 | `crs` | str | Coordinate reference system of the grid and all stored coords. **`EPSG:6677`** (the LiDAR native CRS). The CityGML target is reprojected 6697→6677 before voxelization (D5; see Alignment rule 1). |
 | `source_files` | list[str] | Paths/ids of source files: the LiDAR LAS sheet **and the CityGML grid file(s)** (D5). OBJ paths appear here only when the OBJ fallback is used instead of CityGML. |
-| `dataset_version` | str | Schema/feature-layout version (e.g. `v0.1`). |
+| `dataset_version` | str | Schema / mask-rule version (current `v0.2`). |
 | `feature_layout` | list[str] | Names of the `C` feature columns, in order. |
 
 ## Coordinate convention
@@ -76,7 +91,7 @@ later `dataset_version`, not added in v0.1.
 - Duplicate points mapping to the same voxel are merged (occupancy = OR; features
   aggregated, e.g. mean/min/max — specify in feature layout).
 
-## Semantic label table (`dataset_version = v0.1`)
+## Semantic label table (`dataset_version = v0.2`, unchanged from v0.1)
 
 > Finalized for v0.1 under the **shell** target (D2): a building is its surface
 > voxels (`roof` + `facade`), so the building-*solid* class `2` is **unused**.

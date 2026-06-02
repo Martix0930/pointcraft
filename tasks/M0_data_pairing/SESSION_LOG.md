@@ -5,21 +5,23 @@ Append a dated entry at the end of every session. Keep the "Current status" and
 
 ---
 
-## Current status: **DONE (v0.1, CityGML target — EXECUTION_PLAN v2 / D5).**
+## Current status: **DONE (v0.2, CityGML target + class-aware masks — D5 + D6).**
 `scripts/run_m0.py --target citygml` turns raw LiDAR + CityGML into one contract
 `.npz` end-to-end on a shared `VoxelGrid`, with surface-type semantics
-(roof/facade/**ground**) and observed/unobserved masks. **32 tests passing.**
-Phases A–E complete for the CityGML re-target; the OBJ path is retained as the
-`--target obj` fallback. `dataset_version` stays `v0.1` (no schema change — only
-the target source + the `ground`(1) label changed).
+(roof/facade/**ground**) and **class-aware observed/unobserved masks (D6)**.
+**33 tests passing.** Phases A–E complete; OBJ retained as the `--target obj`
+fallback. `dataset_version = v0.2` (mask rule changed; fields/feature-layout
+unchanged from v0.1).
 
-**Carried-over known limitation (NOT fixed here):** `compute_masks` still matches
-voxels by **exact (i,j,k)**, so ~55 % of roof voxels read "unobserved" (a roof
-surface at k=40 vs a roof point at k=39 miss by <1 m). The audit's z-tolerance fix
-remains **on hold pending human verdict**; D5 only fixed *semantics* (ground is now
-its own class, no longer mislabelled roof). Total unobserved is 63.6 % (was 76.1 %
-under OBJ); facade 61.8 % / ground 89.4 % unobserved are physically genuine
-(walls + under-building bases are unseen from the air); the inflated part is roof.
+**Mask z-tolerance decision RESOLVED (D6, was the open item).** `compute_masks` is
+now class-aware: horizontal surfaces (roof/ground) use a `±z_tol` (=1) match —
+fixing the sub-voxel z-quantization that flagged ~55 % of seen roofs "unobserved";
+facades require a genuine **mid-wall exact hit** (excluding ground/roof clip points).
+On 09LD1874: observed **roof 70 % / facade ~35 % / ground 18 %**, total unobserved
+**61 %**. The facade ~35 % reflects this LiDAR's real (sparse) oblique facade
+coverage — a research note for M4 (the "roofs-only" premise understates facade
+observation). `z_tol` / `wall_margin` are tunable (raise `wall_margin` to push
+facade-observed toward 30 %).
 
 <details><summary>Prior status (OBJ v0.1, superseded)</summary>
 
@@ -50,12 +52,10 @@ finalized for `dataset_version=v0.1`. **32 tests passing.**
 
 ## Known limitations (M0 v0.1, CityGML target)
 
-- **Roof masks inflated by exact-voxel matching (the open item).** `compute_masks`
-  matches observed by exact `(i,j,k)`, so ~55 % of roof voxels read "unobserved"
-  even though aerial LiDAR sees roofs (a <1 m k-quantization miss). The audit's
-  ±1-voxel z-tolerance fix is **on hold pending human verdict**; applying it would
-  change the mask definition → bump `dataset_version`. Facade (61.8 %) and ground
-  (89.4 %) unobserved are genuine (walls + under-building bases unseen from air).
+- **~~Roof masks inflated by exact matching~~ — RESOLVED (D6, v0.2).** Now fixed
+  by the class-aware mask: horizontal `±z_tol`, facade genuine mid-wall. Roof
+  observed 45 %→70 %. Remaining facade ~35 % observed is genuine sparse oblique
+  coverage (not an artifact) — flagged as an M4 research note in D6.
 - **`ground` = building footprint base, not terrain.** It comes from CityGML
   `GroundSurface`, which is **sparse** (open-bottomed PLATEAU buildings; ~39/2061
   surfaces on this tile). True terrain ground / vegetation still need a DEM/LiDAR
@@ -75,16 +75,16 @@ finalized for `dataset_version=v0.1`. **32 tests passing.**
 
 ## Next recommended prompt for Claude Code
 
-> Read `CLAUDE.md`, `docs/02_DATA_CONTRACT.md`, `docs/06_DECISIONS.md` (incl. D5)
-> and `tasks/M0_data_pairing/`. **M0 (CityGML, v0.1) is DONE**: paired samples are
-> produced by `python scripts/run_m0.py --config configs/tokyo_station.yaml
-> --out outputs/m0/tokyo_citygml.npz` (contract `.npz`, surface-type semantics +
-> masks). Before building on the masks, **decide the open `compute_masks`
-> z-tolerance question** (the alignment audit + the "roof masks inflated" limitation
-> above): if you adopt a ±1-voxel observed tolerance and/or clip the target to the
-> LiDAR-covered footprint, log it in `docs/06_DECISIONS.md` and bump
-> `dataset_version`. Then begin **M1** (`tasks/M1_deterministic_baseline/`) scored
-> against this `.npz`. Keep no-NN scope until M2; don't commit real data / `.npz`.
+> Read `CLAUDE.md`, `docs/02_DATA_CONTRACT.md`, `docs/06_DECISIONS.md` (D5 + D6)
+> and `tasks/M0_data_pairing/`. **M0 is DONE (v0.2, CityGML + class-aware masks)**:
+> paired samples are produced by `python scripts/run_m0.py --config
+> configs/tokyo_station.yaml --out outputs/m0/tokyo_citygml.npz` (contract `.npz`,
+> surface-type semantics, class-aware masks; observed roof 70 % / facade ~35 % /
+> ground 18 %). The mask z-tolerance question is **resolved (D6)**. Begin **M1**
+> (`tasks/M1_deterministic_baseline/`) scored against this `.npz`. Keep no-NN scope
+> until M2; don't commit real data / `.npz`. (Optional: revisit `wall_margin` if you
+> want facade-observed nearer 30 %, or per-class M4 metric weighting given the
+> genuine facade coverage finding.)
 
 ---
 
@@ -587,3 +587,39 @@ heuristic). Then C6 masks (reuse), C7 writer (reuse), C9 `run_m0` wiring + C8 vi
   test(D) → this handoff.
 - **Open item before relying on masks / M1:** the `compute_masks` exact-voxel
   z-tolerance decision (above). M1 is otherwise unblocked.
+
+### 2026-06-03 — M0 D6: class-aware observed masks (z-tol + mid-wall); v0.2
+
+Resolved the open mask-tolerance question (above) with data, not a guess.
+
+**Quantification on 09LD1874** (driving the decision):
+- Exact match: roof 45 % / facade 38 % / ground 11 % observed (roof artifact).
+- z±1 (all classes): roof 70 % / facade 67 % observed — but facade 67 % is too
+  lenient; a mid-wall breakdown showed **64.8 % of mid-height facade voxels** have
+  a LiDAR point within ±1, i.e. this aerial LiDAR has **genuine oblique facade
+  returns** (not a coincidence-of-roof-points artifact).
+- **Genuine mid-wall facade signal** (exact hit, excluding ground/roof clip points):
+  **30.1 %** — i.e. the point cloud really informs ~30 % of facade.
+- XY coverage gap: only **9 / 46,702** target columns lack any LiDAR → no ignore /
+  footprint-clip mask needed for this tile.
+
+**Decision D6** (`docs/06_DECISIONS.md`): class-aware `compute_masks`:
+- horizontal (roof/ground): observed if partial within `|Δk| ≤ z_tol` (=1) at same
+  `(i,j)` — fixes the z-quantization straddle (roof 45 %→70 %);
+- facade: observed only on an **exact** hit in a **genuine mid-wall** cell
+  (`≥ wall_margin`=2 voxels from the column's min/max target) — keeps the facade
+  completion region honest;
+- `sem_target=None` → legacy v0.1 exact rule (back-compat).
+
+**Implementation:** `pointcraft.data.compute_masks` gains `sem_target` / `z_tol` /
+`wall_margin` / label kwargs; `run_m0` passes `sem_target`. `DATASET_VERSION` →
+**`v0.2`**. Re-run 09LD1874: observed roof 70 % / facade 34.9 % / ground 17.5 %,
+total unobserved **61.0 %**. Docs updated (D6, contract observed-rule + v0.2 bump).
+Tests: new `test_class_aware_masks_v02` (z-tol rescues a roof, mid-wall facade rule,
+back-compat exact); two v0.1→v0.2 version-assertion updates. **Suite 33 passing.**
+
+**Research note carried to M4:** facade is observed more than the "roofs-only"
+premise assumed (~35 %); weight per-class completion metrics accordingly, and/or
+raise `wall_margin` to set facade-observed nearer 30 %.
+
+M0 fully DONE (v0.2). M1 unblocked.

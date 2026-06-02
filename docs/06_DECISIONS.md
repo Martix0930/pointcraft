@@ -297,3 +297,50 @@ recreated root package.
 Status:
 Confirmed (no action; documents the executed state to prevent re-introducing a
 root package).
+
+---
+
+## 2026-06-03 - M0/D6 - Class-aware observed mask (z-tolerance + genuine mid-wall); dataset_version v0.2
+
+Context:
+The v0.1 masks defined `observed = coords_target ∈ coords_partial` by **exact**
+`(i,j,k)`. On the real tile this flagged ~55 % of roof voxels "unobserved" even
+though aerial LiDAR clearly sees roofs: a roof surface sampled at k=40 and a roof
+LiDAR point at k=39 differ by <1 m but miss under exact matching (sub-voxel
+z-quantization straddle). Conversely, a quantitative check showed this aerial
+LiDAR has **substantial oblique facade returns** — exact matching already marks
+38 % of facade observed, and the *genuine mid-wall* signal (excluding ground/roof
+points that merely clip the bottom/top wall voxel) is ~30 %. The completion task
+must neither (a) reward "completing" roofs that were actually seen, nor (b) be made
+artificially impossible by pretending zero facade was observed.
+
+Decision:
+`compute_masks` becomes **class-aware** (`sem_target` required for the new rule;
+`None` falls back to the v0.1 exact rule):
+- **Horizontal surfaces** (roof 3 / ground 1): observed if a partial voxel exists
+  at the **same `(i,j)` within `|Δk| ≤ z_tol`** (default `z_tol=1`). Corrects the
+  z-quantization straddle.
+- **Vertical surfaces** (facade 4): observed only on an **exact** partial hit that
+  is a **genuine mid-wall** cell — `≥ wall_margin` voxels above the column's lowest
+  target voxel and below its highest (default `wall_margin=2`) — so ground/roof
+  points clipping the base/top wall voxel don't count as "facade observed".
+- `unobserved = occupied_target ∧ ¬observed` unchanged.
+
+Reason:
+Targets the genuine geometry artifact (horizontal z-straddle) while keeping the
+facade completion region honest. On 09LD1874 this yields roof 70 % / facade ~35 % /
+ground 18 % observed (total unobserved 61 %), matching the intended "facades carry
+real but sparse aerial signal (~30 %), most still to complete" research framing.
+
+Consequences:
+- **Mask definition changed → `dataset_version` bumped to `v0.2`** (the on-disk
+  field set/feature layout are unchanged, but the mask *values* differ from v0.1;
+  the version distinguishes them). `02_DATA_CONTRACT.md` updated.
+- `z_tol` / `wall_margin` are tunable parameters (facade-observed ≈ 35 % at
+  `wall_margin=2`; raise it to push toward 30 %). Defaults pinned for v0.2.
+- **Research note (carry to M4):** this LiDAR observes facades more than the
+  "roofs-only" premise assumed; the unobserved region is genuinely ~facades+under-
+  building ground, not "all walls". Revisit per-class metric weighting at M4.
+
+Status:
+Adopted (M0, v0.2).

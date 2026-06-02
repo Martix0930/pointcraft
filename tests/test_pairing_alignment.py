@@ -90,7 +90,7 @@ def test_end_to_end_run_m0_fixture_writes_loadable_npz(tmp_path):
                   "sem_target", "observed_mask", "unobserved_mask", "metadata"):
         assert field in z.files
     md = json.loads(str(z["metadata"]))
-    assert md["dataset_version"] == "v0.1"
+    assert md["dataset_version"] == "v0.2"
     assert md["feature_layout"] == ["height", "point_count"]
     # partial recovers both roof (k=3) and ground (k=0) — the grid-extent fix
     kp = z["coords_partial"][:, 2]
