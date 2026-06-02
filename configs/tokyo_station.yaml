@@ -1,19 +1,22 @@
 # Data config for the M1 deterministic baseline run (scripts/tokyo_station.py).
 #
-# NOTE: `las` and `lod2_tiles` are absolute paths to LARGE local datasets that
-# live OUTSIDE the repo and are NOT committed (see docs/07_GOTCHAS.md). They are
-# machine-specific — edit them for your environment. CLI flags (--las / --lod2 /
-# --out / --name) override these values.
+# Paths resolve relative to this config's folder. Large data now lives under the
+# git-ignored data/ tree (moved out of Download/ and 三维GIS/). CLI flags
+# (--las / --lod2 / --out / --name) override these values.
 
 name: tokyo_station
 crs: "EPSG:6677"        # both LAS and LOD2 are in this CRS (no reprojection)
 cell_size: 1.0          # meters per voxel / block
 
-# Aerial LiDAR tile(s). One original tile; LOD2 supplies full building geometry.
+# Aerial LiDAR tile(s). 60 full tiles now sit in data/raw/lidar/ (09LDxxxx.las);
+# this single tile reproduces the original M0 Tokyo-Station run. See
+# data/raw/tile_alignment.csv for which LAS covers which mesh.
 las:
-  - "D:/Desktop/实习/三维GIS/09LD1874.las"
+  - "../data/raw/lidar/09LD1874.las"
 
 # PLATEAU LOD2 textured-mesh tile directories.
+# TODO: still under 三维GIS/ — pending decision to move into data/raw/lod2/ and/or
+# switch to the higher-accuracy CityGML in data/raw/citygml/.
 lod2_tiles:
   - "D:/Desktop/实习/三维GIS/LOD2/53394611"
   - "D:/Desktop/实习/三维GIS/LOD2/53394621"
