@@ -14,12 +14,12 @@ cell_size: 1.0          # meters per voxel / block
 las:
   - "../data/raw/lidar/09LD1874.las"
 
-# PLATEAU LOD2 textured-mesh tile directories.
-# TODO: still under 三维GIS/ — pending decision to move into data/raw/lod2/ and/or
-# switch to the higher-accuracy CityGML in data/raw/citygml/.
+# PLATEAU LOD2 textured-mesh tile directories — now in data/raw/lod2/ (9 mesh
+# grids 53394600–622). Higher-accuracy CityGML is staged in data/raw/citygml/
+# for a future switch (needs a GML parser + 6697→6677 reprojection).
 lod2_tiles:
-  - "D:/Desktop/实习/三维GIS/LOD2/53394611"
-  - "D:/Desktop/实习/三维GIS/LOD2/53394621"
+  - "../data/raw/lod2/53394611"
+  - "../data/raw/lod2/53394621"
 
 # Output directory (relative to repo root unless absolute).
 output_dir: "output"
