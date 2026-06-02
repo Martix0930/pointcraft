@@ -5,15 +5,16 @@ Append a dated entry at the end of every session. Keep the "Current status" and
 
 ---
 
-## Current status: **DONE (v0.1) — pipeline complete; ⚠ label quality under
-manual review.** One command (`scripts/run_m0.py`) turns raw LiDAR + LOD2 into one
-contract `.npz` on a shared VoxelGrid, with observed/unobserved masks. 28 tests
-passing; all ACCEPTANCE items met. **BUT** a follow-up audit found the
-observed/unobserved labelling is inflated by alignment artifacts (see the
-"Alignment audit" entry below) — the masks are not yet trustworthy as supervision.
-3D QA exports produced via `scripts/export_alignment_3d.py`; **awaiting human
-verification** before fixing. M1 is technically unblocked but should wait on the
-audit outcome since label quality affects everything downstream.
+## Current status: **IN PROGRESS — re-targeting M0 to CityGML (EXECUTION_PLAN v2,
+D5).** The OBJ-based pipeline (v0.1) is complete and runs end-to-end
+(`scripts/run_m0.py`, 28 tests), but its alignment audit (entry below) showed the
+masks are inflated by OBJ-geometry artifacts and the OBJ target lacks a ground
+class. Per EXECUTION_PLAN v2 the M0 **target source is now CityGML** (D5):
+semantics are read from surface types, and CityGML is reprojected 6697→6677.
+First/only proof tile = **09LD1848** (must have a CityGML grid in
+`data/raw/tile_alignment.csv` — Phase B gate). Real data staged under `data/raw/`
+(git-ignored). **Phase A (docs only) is DONE this session**; Phase B (tile verify +
+reuse inventory + GML probe) is next. The OBJ pipeline stays as fallback/comparison.
 
 M0 delivers `pointcraft.data`: `voxelize_partial` (LiDAR→partial), `voxelize_target`
 (LOD2 shell→target+semantics), `compute_masks` (D4), `build_metadata` +
@@ -40,12 +41,19 @@ Contract finalized for `dataset_version=v0.1`. 28 tests passing.
 
 ## Next recommended prompt for Claude Code
 
-> Read `CLAUDE.md` and `tasks/M1_deterministic_baseline/` (TASK_SPEC, ACCEPTANCE,
-> CHECKLIST). M0 is **DONE**: paired voxel samples are produced by
-> `scripts/run_m0.py` → contract `.npz` (see `docs/02_DATA_CONTRACT.md`), and the
-> M1 baseline pipeline already exists at `src/pointcraft/baseline/stages.py`.
-> Begin M1 per its TASK_SPEC. Do not redesign the repo or touch M0 code beyond
-> what M1 explicitly needs; keep the no-NN scope until M2. Update M1's SESSION_LOG.
+> Read `CLAUDE.md`, `docs/07_GOTCHAS.md`, `docs/02_DATA_CONTRACT.md`,
+> `docs/06_DECISIONS.md` (incl. D5) and `tasks/M0_data_pairing/EXECUTION_PLAN.md`.
+> Phase A (CityGML re-target docs) is DONE. Execute **Phase B** only: (1) confirm in
+> `data/raw/tile_alignment.csv` that tile `09LD1848` maps to an on-hand CityGML grid
+> (one of 53394600–622) — if not, STOP and pick a tile that does; (2) inventory
+> reusable `src/pointcraft/` modules (LAS load, `VoxelGrid`, `parse_obj`/surface
+> sampling as a structural reference for the GML parser, config path resolution);
+> (3) probe the matching `.gml`: confirm it has `bldg:RoofSurface`/`WallSurface`/
+> `GroundSurface`, read its CRS (expect 6697), log a few surface counts. Read/probe
+> only — no implementation code. Record findings in this SESSION_LOG, then stop and
+> report before Phase C.
+>
+> (Deferred: M1 baseline, once the CityGML-based `.npz` re-verifies alignment.)
 
 ---
 
@@ -347,3 +355,34 @@ diagnosed.
 the human verdict. Candidate fixes (z-tolerance, coverage clip) are on hold.
 Once verified, log the decision in `docs/06_DECISIONS.md` and bump
 `dataset_version` if the mask definition changes.
+
+### 2026-06-03 — M0 Phase A (v2): adopt CityGML target (D5), finalize contract
+
+Re-targeting M0 from OBJ to CityGML per `EXECUTION_PLAN.md` v2. **Docs only — no
+`.py` changed** (Phase A scope).
+
+- `docs/06_DECISIONS.md`:
+  - Added **D5** — CityGML replaces OBJ as the M0 target; roof/facade/ground
+    semantics read from CityGML surface types (`RoofSurface`/`WallSurface`/
+    `GroundSurface`) instead of inferred from face `|n_z|`. Removes the
+    building-base-→-roof mislabelling the alignment audit flagged and unlocks a
+    `ground`(1) class. Requires a GML parser + **6697→6677** reprojection (z passes
+    through). OBJ kept only as fallback/comparison. `dataset_version` stays `v0.1`.
+  - Added a **correction entry** confirming there is no repo-root `pointcraft/`
+    (legacy merged into `src/pointcraft/` and deleted) — new CityGML code goes in
+    `src/pointcraft/data/`.
+- `docs/02_DATA_CONTRACT.md` finalized for the CityGML target:
+  - `crs` clarified = `EPSG:6677` for grid + stored coords; CityGML reprojected
+    6697→6677 (Alignment rule 1 rewritten: horizontal-only, z re-verified Phase C2).
+  - `source_files` target = the CityGML grid file(s) (OBJ only under fallback).
+  - Semantic label table sourced from CityGML surface types; `ground`(1) now
+    **active**; explicit surface-type→label mapping added; class `2` still unused
+    (shell, D2). `feature_layout = ["height","point_count"]` and required masks (D4)
+    unchanged.
+- This SESSION_LOG: status → **IN PROGRESS**; tile = `09LD1848`; target = CityGML;
+  next-recommended-prompt repointed to Phase B (tile-↔-CityGML gate + reuse
+  inventory + GML probe).
+
+**Stop point:** Phase A complete. Phase B is the tile-mapping gate — if `09LD1848`
+has no on-hand CityGML grid in `tile_alignment.csv`, pick a tile that does before
+any further work.

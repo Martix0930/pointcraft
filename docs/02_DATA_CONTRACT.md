@@ -4,8 +4,11 @@ This defines the **planned** on-disk format for paired voxel training samples
 produced by M0. One `.npz` file = one tile sample. This contract is the interface
 between M0 (data pairing) and M2+ (learning).
 
-> Status: **finalized for `dataset_version = v0.1`** (M0 decisions D1–D4 locked in
-> `docs/06_DECISIONS.md`). Further changes require bumping `dataset_version`.
+> Status: **finalized for `dataset_version = v0.1`** (M0 decisions D1–D5 locked in
+> `docs/06_DECISIONS.md`). The target source is **CityGML** (D5), not OBJ; building
+> semantics come from CityGML surface types. The on-disk field set / feature layout
+> are unchanged, so `dataset_version` stays `v0.1`. Further schema changes require
+> bumping `dataset_version`.
 
 ## `.npz` fields
 
@@ -13,7 +16,7 @@ between M0 (data pairing) and M2+ (learning).
 |-------|-------|-------|---------|
 | `coords_partial` | int32 | `[N, 3]` | Voxel indices `(i, j, k)` that are **observed** (occupied by the partial LiDAR input). |
 | `feats_partial`  | float32 | `[N, C]` | Per-observed-voxel features (see feature layout). `C` fixed per dataset version. |
-| `coords_target`  | int32 | `[M, 3]` | Voxel indices for the **complete** target. Under the **shell** representation (D2) these are the LOD2/mesh *surface* voxels — no interior fill. |
+| `coords_target`  | int32 | `[M, 3]` | Voxel indices for the **complete** target. Under the **shell** representation (D2) these are the CityGML LOD2 *surface* voxels — no interior fill. |
 | `occ_target`     | uint8 | `[M]` | Occupancy label per `coords_target` entry. Every stored target voxel is occupied, so this is `1` for all `M` entries in v0.1 (free voxels are not stored). |
 | `sem_target`     | int64 | `[M]` | Semantic class id per `coords_target` entry (see label table). `255` (`ignore_index`) for unknown. |
 | `observed_mask`  | uint8 | `[M]` | **Required** (D4). `1` if this target voxel was directly observed by the partial input (`coords_target ∈ coords_partial`). |
@@ -50,8 +53,8 @@ later `dataset_version`, not added in v0.1.
 | `origin` | float[3] | World coordinate of voxel index `(0,0,0)` corner. |
 | `bounds` | float[6] | `[xmin, ymin, zmin, xmax, ymax, zmax]` world bounds of the grid. |
 | `grid_shape` | int[3] | `(I, J, K)` voxel-grid dimensions. |
-| `crs` | str | Coordinate reference system (e.g. `EPSG:6677`). |
-| `source_files` | list[str] | Paths/ids of source LiDAR + LOD2/CityGML files. |
+| `crs` | str | Coordinate reference system of the grid and all stored coords. **`EPSG:6677`** (the LiDAR native CRS). The CityGML target is reprojected 6697→6677 before voxelization (D5; see Alignment rule 1). |
+| `source_files` | list[str] | Paths/ids of source files: the LiDAR LAS sheet **and the CityGML grid file(s)** (D5). OBJ paths appear here only when the OBJ fallback is used instead of CityGML. |
 | `dataset_version` | str | Schema/feature-layout version (e.g. `v0.1`). |
 | `feature_layout` | list[str] | Names of the `C` feature columns, in order. |
 
@@ -77,23 +80,33 @@ later `dataset_version`, not added in v0.1.
 
 > Finalized for v0.1 under the **shell** target (D2): a building is its surface
 > voxels (`roof` + `facade`), so the building-*solid* class `2` is **unused**.
+> Semantics are read **directly from CityGML surface types** (D5), not inferred
+> from face geometry.
 
-| id | name | source | v0.1 status |
-|----|------|--------|-------------|
+| id | name | source (v0.1 = CityGML surface type, D5) | v0.1 status |
+|----|------|------------------------------------------|-------------|
 | 0 | free / empty | (only if storing free voxels; v0.1 stores occupied only) | unused |
-| 1 | ground | LiDAR class + LOD terrain | active |
+| 1 | ground | CityGML `bldg:GroundSurface` | active (new under D5) |
 | 2 | building (solid interior) | LOD2 building solid | **unused** (shell target, D2) |
-| 3 | roof | LOD2 roof surface | active |
-| 4 | facade / wall | LOD2 wall surface | active |
+| 3 | roof | CityGML `bldg:RoofSurface` | active |
+| 4 | facade / wall | CityGML `bldg:WallSurface` | active |
 | 5 | vegetation | LiDAR class (low/high veg) | active if available |
 | 6 | road | OSM / LiDAR | optional |
 | 7 | water | optional | optional |
 | 255 | ignore / unknown | unlabeled | `ignore_index` |
 
+CityGML surface-type → label mapping (D5):
+`bldg:RoofSurface → roof (3)`, `bldg:WallSurface → facade (4)`,
+`bldg:GroundSurface → ground (1)`. Surfaces with no recognised type → `ignore (255)`.
+
 ## Alignment rules (LiDAR ↔ LOD2)
 
-1. **Same CRS, no transform.** Verify LiDAR and LOD2 share the CRS (e.g. EPSG:6677)
-   before pairing; if not, reproject LOD2 to the LiDAR CRS and log it.
+1. **CRS reconciliation (D5).** The grid and all stored coords are **EPSG:6677**
+   (LiDAR native). CityGML is delivered in **EPSG:6697 (lat/lon)** and MUST be
+   reprojected **6697→6677** before pairing; log the reprojection. The transform is
+   horizontal-only — `z` (absolute elevation, D3) passes through unchanged and is
+   re-verified on a real building (Phase C2 gate). (For the OBJ fallback, OBJ is
+   already 6677, so no reprojection is needed.)
 2. **Shared grid.** `coords_partial` and `coords_target` MUST use the **same**
    `origin`, `voxel_size`, and `grid_shape`. The grid is defined once per tile and
    reused for both input and target.
@@ -101,7 +114,7 @@ later `dataset_version`, not added in v0.1.
    origin for partial and target. No DTM / height-above-ground model in v0.1;
    adopting height-above-ground later means recomputing `z` and bumping
    `dataset_version` (document the offset in `metadata`).
-4. **Tile extent.** Tile bounds derive from the LiDAR coverage; LOD2 is clipped to
-   the same bounds.
+4. **Tile extent.** Tile bounds derive from the LiDAR coverage; the (reprojected)
+   CityGML target is clipped to the same bounds.
 5. **Sanity check.** A target building's footprint must overlap the observed roof
    voxels of the same building (alignment regression test in M0).

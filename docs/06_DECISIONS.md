@@ -229,3 +229,66 @@ Consequences:
 
 Status:
 Adopted (M0).
+
+---
+
+## 2026-06-03 - M0/D5 - CityGML replaces OBJ as the M0 target source
+
+Context:
+The OBJ-based M0 pipeline (v0.1, DONE) derived building semantics from face
+orientation (`|n_z| >= 0.7` → roof, else facade). The alignment audit
+(2026-06-01, see `tasks/M0_data_pairing/SESSION_LOG.md`) confirmed two problems
+this causes: (a) near-horizontal building *bottom* faces are mislabelled roof;
+(b) there is no ground/road/vegetation class because the OBJ is building-only.
+The downloaded CityGML carries explicit LOD2 surface types
+(`bldg:RoofSurface` / `bldg:WallSurface` / `bldg:GroundSurface`), i.e. the
+semantics we were heuristically (and sometimes wrongly) inferring.
+
+Decision:
+Use **CityGML** as the M0 target source; read roof / wall / ground semantics
+directly from CityGML surface types instead of inferring them from geometry.
+OBJ is retained only as a fallback / comparison if CityGML integration stalls.
+
+Reason:
+- Removes the geometry-heuristic mislabelling (building base → roof) seen under
+  OBJ; gives true roof/facade/ground labels at the source.
+- Unlocks a `ground`(1) class for the target (OBJ had none).
+
+Consequences:
+- Requires a new GML parser (`src/pointcraft/data/citygml.py`) and a
+  **EPSG:6697 (lat/lon) → EPSG:6677** reprojection before alignment with the
+  LiDAR (CityGML is delivered in 6697; LiDAR is native 6677). Reprojection is
+  horizontal-only — z (absolute elevation, D3) must pass through unchanged and be
+  re-verified on a real building.
+- `02_DATA_CONTRACT.md`: target `source_files` become the CityGML grid file(s);
+  semantic label table maps to CityGML surface types
+  (RoofSurface→roof 3, WallSurface→facade 4, GroundSurface→ground 1).
+- The shell representation (D2) and label `2` (building solid interior) being
+  unused are unchanged.
+- `dataset_version` stays `v0.1` for now (field set + feature layout unchanged);
+  bump it only if the on-disk schema or feature layout changes.
+
+Status:
+Adopted (M0). First tile to re-verify: `09LD1848` (CityGML grid must exist in
+`data/raw/tile_alignment.csv` — Phase B gate).
+
+---
+
+## 2026-06-03 - Correction: legacy root `pointcraft/` merge is executed, not pending
+
+Context:
+The 2026-06-01 decision "Keep legacy pipeline as M1 baseline under repo-root
+`pointcraft/`" left open the possibility of a separate root package. The
+EXECUTION_PLAN v2 asks for an explicit confirmation that this is resolved.
+
+Decision / correction:
+There is **no repo-root `pointcraft/`**. The legacy pipeline has been merged into
+`src/pointcraft/` and the root package deleted (see the 2026-06-01 "Merge legacy
+pipeline into `src/pointcraft/baseline`" decision, which supersedes the "keep
+legacy as M1 baseline" entry). `src/pointcraft/` is the **only** importable
+`pointcraft`. New M0 CityGML code lives in `src/pointcraft/data/`, not in a
+recreated root package.
+
+Status:
+Confirmed (no action; documents the executed state to prevent re-introducing a
+root package).
