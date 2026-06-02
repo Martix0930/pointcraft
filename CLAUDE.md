@@ -35,6 +35,11 @@ small task specs, not long chat logs.
   former repo-root `pointcraft/` package). Treat it as the baseline reference; do
   not refactor it unless a task explicitly says so.
 - `src/pointcraft/pipeline.py` — Context / Stage / Pipeline core (was `context.py`).
+- `data/raw/` — **all large local datasets** (git-ignored): `lidar/` (60 LAS),
+  `lod2/` (M0 target OBJ), `dem/`, `citygml/` (future high-accuracy target). The
+  old `三维GIS/` and `Download/` paths are gone — see `data/raw/README.md` and the
+  Data-location gotcha in `docs/07_GOTCHAS.md`. Configs use paths relative to the
+  config file.
 - `scripts/`, `configs/`, `tests/`, `experiments/`, `outputs/` — see each folder's README.
 
 > Naming: code/package/import/path = lowercase `pointcraft`; human-facing prose = `PointCraft`. Never rename the package dir to `src/PointCraft/`. See `docs/07_GOTCHAS.md`.

@@ -49,6 +49,23 @@ Practical traps to avoid. Add entries as they bite.
   `!test_data/**/*.obj` rule in `.gitignore`. Do not add `!test_data/**/*.npz`
   exceptions unless a tiny `.npz` fixture is intentionally created.
 
+## Data location (large local datasets)
+
+- All large source data now lives under **`data/raw/`** (git-ignored). The old
+  external paths (`D:/Desktop/实习/三维GIS/...`, `D:/Soft/Chrome/Download/...`)
+  are **gone — don't look there or hardcode them.**
+- Layout:
+  - `data/raw/lidar/` — 60 `09LDxxxx.las` (full tiles, EPSG:6677)
+  - `data/raw/lod2/` — 9 mesh OBJ (53394600–622); **current M0 target source**
+  - `data/raw/dem/` — terrain (for a future height-above-ground version)
+  - `data/raw/citygml/` — 9 LOD2 grids, **EPSG:6697 (lat/lon)**; staged to replace
+    the OBJ later (needs a GML parser + 6697→6677 reprojection — not done yet)
+  - `data/raw/tile_alignment.csv` + `data/raw/README.md` — LAS↔mesh↔CityGML map
+- Configs use **paths relative to the config file** (e.g. `../data/raw/lidar/...`),
+  resolved by `pointcraft.utils.config.resolve_path`. Keep new paths relative /
+  in-project; regenerate the index with `python scripts/build_tile_index.py`.
+- `09LD` sheet decode: `09LD WXYZ` → row(N–S)=`10·W+Y`, col(E–W)=`10·X+Z`.
+
 ## Windows
 
 - Git may warn `LF will be replaced by CRLF` — harmless.
