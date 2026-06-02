@@ -11,10 +11,14 @@ D5).** The OBJ-based pipeline (v0.1) is complete and runs end-to-end
 masks are inflated by OBJ-geometry artifacts and the OBJ target lacks a ground
 class. Per EXECUTION_PLAN v2 the M0 **target source is now CityGML** (D5):
 semantics are read from surface types, and CityGML is reprojected 6697→6677.
-First/only proof tile = **09LD1848** (must have a CityGML grid in
-`data/raw/tile_alignment.csv` — Phase B gate). Real data staged under `data/raw/`
-(git-ignored). **Phase A (docs only) is DONE this session**; Phase B (tile verify +
-reuse inventory + GML probe) is next. The OBJ pipeline stays as fallback/comparison.
+First/only proof tile = **09LD1848** — Phase B gate **PASSED**: it is effectively
+fully covered by the on-hand `53394622_bldg_6697_2_op.gml` (the listed `53394632`
+is only an adjacent-grid bbox overlap that 53394622 already spans). Real data staged
+under `data/raw/` (git-ignored). **Phases A + B (docs/read-only) DONE this session.**
+GML confirmed: EPSG:6697, 3D, posList axis order **lat,lon,z**; LOD2 present (3101
+buildings; 2044 Roof / 5320 Wall / 226 Ground surfaces). **Next = Phase C1**: write
+`src/pointcraft/data/citygml.py` (typed LOD2 surfaces + 6697→6677 reprojection, add
+`pyproj` dep) — the first code/dep step. The OBJ pipeline stays as fallback/comparison.
 
 M0 delivers `pointcraft.data`: `voxelize_partial` (LiDAR→partial), `voxelize_target`
 (LOD2 shell→target+semantics), `compute_masks` (D4), `build_metadata` +
@@ -43,15 +47,14 @@ Contract finalized for `dataset_version=v0.1`. 28 tests passing.
 
 > Read `CLAUDE.md`, `docs/07_GOTCHAS.md`, `docs/02_DATA_CONTRACT.md`,
 > `docs/06_DECISIONS.md` (incl. D5) and `tasks/M0_data_pairing/EXECUTION_PLAN.md`.
-> Phase A (CityGML re-target docs) is DONE. Execute **Phase B** only: (1) confirm in
-> `data/raw/tile_alignment.csv` that tile `09LD1848` maps to an on-hand CityGML grid
-> (one of 53394600–622) — if not, STOP and pick a tile that does; (2) inventory
-> reusable `src/pointcraft/` modules (LAS load, `VoxelGrid`, `parse_obj`/surface
-> sampling as a structural reference for the GML parser, config path resolution);
-> (3) probe the matching `.gml`: confirm it has `bldg:RoofSurface`/`WallSurface`/
-> `GroundSurface`, read its CRS (expect 6697), log a few surface counts. Read/probe
-> only — no implementation code. Record findings in this SESSION_LOG, then stop and
-> report before Phase C.
+> Phases A + B are DONE (tile 09LD1848 confirmed on `53394622`; reuse map + GML
+> probe in the Phase B log entry). Execute **Phase C1** only: add `src/pointcraft/
+> data/citygml.py` — parse LOD2 buildings, extract polygons tagged by surface type
+> (`RoofSurface→roof`, `WallSurface→facade`, `GroundSurface→ground`), reproject
+> **6697→6677 honoring the lat,lon,z axis order** (add `pyproj` to deps), keep z
+> unchanged (D3). Output typed surfaces in 6677, **no voxelization** in this module.
+> Then C2 (alignment re-verify gate) before any voxelization. Keep M0 scope (no NN,
+> no semantic learning, no real-data commits). Update this SESSION_LOG.
 >
 > (Deferred: M1 baseline, once the CityGML-based `.npz` re-verifies alignment.)
 
@@ -386,3 +389,66 @@ Re-targeting M0 from OBJ to CityGML per `EXECUTION_PLAN.md` v2. **Docs only — 
 **Stop point:** Phase A complete. Phase B is the tile-mapping gate — if `09LD1848`
 has no on-hand CityGML grid in `tile_alignment.csv`, pick a tile that does before
 any further work.
+
+### 2026-06-03 — M0 Phase B (v2): tile gate + reuse inventory + GML probe (read-only)
+
+Read/probe only — **no `.py` changed**.
+
+**B1 — tile↔CityGML gate → PASSED ✓ (cleaner than feared).**
+- `09LD1848` (`tile_alignment.csv`): `mesh_codes=53394622;53394632`,
+  `in_lod2_citygml=1`. Bbox (6677) X[-4800,-4400] Y[-34500,-34200].
+- On-hand bldg GMLs = the 3×3 block 53394600–622 (9 files in
+  `data/raw/citygml/udx/bldg/*_bldg_6697_2_op.gml`). `53394622` **is present**;
+  `53394632` is **not** (LOD1-only 30/31/32 row, never downloaded).
+- Per `mesh_index.csv`, grid **53394622** extent X[-5324,-4146] Y[-35173,**-34191**]
+  **fully contains** the 09LD1848 footprint (its north edge -34191 already passes the
+  tile's north edge -34200). So `53394632` is only a bbox-overlap of the adjacent
+  grid over a ~35 m north sliver that 53394622 also covers. **Net: 09LD1848 is
+  effectively fully covered by the single on-hand `53394622` GML.**
+- ⚠ Residual edge risk: under PLATEAU's "building belongs to one mesh cell by its
+  representative point" rule, a few buildings in the north sliver could live in the
+  un-downloaded `53394632` file. Minor; revisit only if the north edge looks bare in
+  the C2 alignment check.
+
+**B2 — reuse inventory** (`src/pointcraft/`, current layout):
+- LAS load: `data.partial.load_las_xyz` (laspy wrapper) + `voxelize_partial`
+  (LiDAR→partial on `VoxelGrid`, v0.1 layout) — **reuse as-is for C4** (no change).
+- Shared grid: `voxelization.grid.VoxelGrid` (`from_bounds`, `world_to_index`,
+  `index_to_center/corner`, `in_bounds`) — **reuse as-is for C3** (already done).
+- Target plumbing: `data.target.voxelize_target` voxelizes a triangle mesh shell
+  onto the grid but derives semantics from face `|n_z|` — **C5 will not reuse its
+  labelling**; it can reuse the barycentric surface-sampling → `VoxelGrid` mechanic,
+  fed by CityGML *typed* polygons (label comes from surface type, not normal).
+- Masks + writer: `data.sample.compute_masks` / `build_metadata` /
+  `write_sample_npz` / `load_sample_metadata` — **reuse as-is for C6/C7**.
+- OBJ parser: `data.lod2.parse_obj` (+ `LOD2Rasterizer.colored_point_samples`) —
+  fallback path only; also a **structural reference** for the new GML polygon
+  extractor (both yield typed polygons to sample).
+- Config: `utils.config` (`resolve_path` resolves config-relative paths) — reuse
+  for `run_m0`/configs (C9). `pipeline.py` (Context/Stage/Pipeline) not needed in M0.
+- Net new code for C1/C5: `data/citygml.py` (GML parse + reproject + typed
+  surfaces) and a typed-surface shell voxelizer; everything else reuses existing.
+
+**B3 — GML probe** (`53394622_bldg_6697_2_op.gml`, 34 MB):
+- CRS declared `EPSG:6697`, `srsDimension="3"`. `gml:posList` coords are
+  **lat lon z** order, e.g. `35.683… 139.779… 30.0995` → axis order is (Y=lat,
+  X=lon, Z=elev). **C1 reprojection must respect this axis order** (pyproj
+  `always_xy=False` for 6697, or swap before transform) — getting it wrong silently
+  flips easting/northing. z is absolute elevation in metres (D3 holds; reprojection
+  is horizontal-only, z passes through).
+- LOD2 present. Tag counts: 3101 `bldg:Building`, 2044 `RoofSurface`,
+  5320 `WallSurface`, **226 `GroundSurface`**, 213 `lod2Solid`,
+  7619 `lod2MultiSurface`, 3101 `lod1Solid`.
+- **GroundSurface is sparse (226 / 3101 buildings).** PLATEAU LOD2 buildings are
+  mostly open-bottomed (no explicit base face). Consequence for D5: `ground`(1) from
+  `GroundSurface` is the *building footprint base*, present only where modelled — it
+  is **not** terrain ground (terrain still needs the DEM, deferred). Upside: open-
+  bottomed buildings have no bottom face to mislabel, so the OBJ "base→roof" bug is
+  gone regardless. Most target voxels will be roof(3)/facade(4) as before, now
+  correctly typed at the source.
+
+**Phase B exit met:** tile confirmed (53394622 on hand, covers tile), reuse map
+written, GML structure + CRS + axis-order confirmed. No code added.
+**Next: Phase C1** — `src/pointcraft/data/citygml.py` (parse typed LOD2 surfaces +
+6697→6677 reprojection with correct lat/lon axis order; add `pyproj` dep). This is
+the first step that touches `.py` / deps — pause for go-ahead before starting.
