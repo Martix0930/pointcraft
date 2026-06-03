@@ -60,6 +60,7 @@ def compute_masks(
     horizontal_labels: Sequence[int] = HORIZONTAL_LABELS,
     vertical_labels: Sequence[int] = VERTICAL_LABELS,
     wall_margin: int = DEFAULT_WALL_MARGIN,
+    xy_tol: int = 0,
 ) -> tuple[np.ndarray, np.ndarray]:
     """Per-target-voxel observed / unobserved masks (uint8), aligned to
     `coords_target` rows. Both coord arrays must hold in-bounds indices on `grid`.
@@ -67,6 +68,14 @@ def compute_masks(
     If `sem_target` is None: legacy exact set-membership (v0.1). Otherwise the
     class-aware rule (v0.2, D6) above is used; pass `z_tol=0, wall_margin=0` to
     reduce it back toward exact while keeping the per-class structure.
+
+    `xy_tol` (default 0, additive — `xy_tol=0` reproduces the v0.2 stored mask) is a
+    horizontal (Chebyshev) tolerance applied to **facades only**: a facade voxel is
+    observed if a partial voxel sits within `±xy_tol` in `(i, j)` at the same `k`.
+    It is the knob that moves the facade-observed line from the strict ~35 % toward
+    the ~67 % physically-grazed line (D7) for the M4 multi-cutoff sensitivity check;
+    M1/M4 drive it via `pointcraft.metrics.build_cutoff_masks`. Out-of-grid shifts
+    are dropped before raveling so no key wraps onto a neighbouring column.
     """
     shape = grid.shape
     key_t = _ravel(coords_target, shape)
@@ -79,7 +88,7 @@ def compute_masks(
 
     coords_target = np.asarray(coords_target, dtype=np.int64).reshape(-1, 3)
     sem = np.asarray(sem_target).reshape(-1)
-    sj, sk = int(shape[1]), int(shape[2])
+    si, sj, sk = int(shape[0]), int(shape[1]), int(shape[2])
     i, j, k = coords_target[:, 0], coords_target[:, 1], coords_target[:, 2]
     observed = np.zeros(coords_target.shape[0], dtype=bool)
 
@@ -92,7 +101,7 @@ def compute_masks(
             obs_h |= hmask & np.isin(shifted, key_p)
     observed |= obs_h
 
-    # --- vertical surfaces (facade): exact hit AND genuine mid-wall ---
+    # --- vertical surfaces (facade): exact (or ±xy_tol) hit AND genuine mid-wall ---
     vmask = np.isin(sem, list(vertical_labels))
     if vmask.any():
         col = i * (10 ** 7) + j  # per-(i,j) column key
@@ -102,7 +111,17 @@ def compute_masks(
         np.minimum.at(col_base, inv, k)
         np.maximum.at(col_top, inv, k)
         midwall = (k >= col_base[inv] + wall_margin) & (k <= col_top[inv] - wall_margin)
-        observed |= exact & vmask & midwall
+
+        vhit = exact & vmask  # xy_tol=0 baseline (matches v0.2)
+        for dx in range(-int(xy_tol), int(xy_tol) + 1):
+            for dy in range(-int(xy_tol), int(xy_tol) + 1):
+                if dx == 0 and dy == 0:
+                    continue
+                ii, jj = i + dx, j + dy
+                valid = (ii >= 0) & (ii < si) & (jj >= 0) & (jj < sj)
+                shifted = np.where(valid, ii * (sj * sk) + jj * sk + k, -1)
+                vhit |= vmask & valid & np.isin(shifted, key_p)
+        observed |= vhit & midwall
 
     observed = observed.astype(np.uint8)
     return observed, (1 - observed).astype(np.uint8)
