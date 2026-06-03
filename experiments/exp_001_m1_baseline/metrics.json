@@ -1,0 +1,115 @@
+{
+  "tile_id": "tokyo_station",
+  "dataset_version": "v0.2",
+  "grid_shape": [
+    400,
+    300,
+    222
+  ],
+  "code_commit": "fd99f93",
+  "cutoff_definitions": {
+    "strict": "facade exact mid-wall (v0.2 stored mask; ~35% facade observed)",
+    "mid": "facade XY+-1 hit, mid-wall only (~63% facade observed)",
+    "tolerant": "facade XY+-1 anywhere (~67%, physical-grazing line, D7)"
+  },
+  "cutoff_unobserved_fraction": {
+    "strict": 0.6096953119437031,
+    "mid": 0.40726153967034073,
+    "tolerant": 0.3743594528432068
+  },
+  "baselines": {
+    "B1_naive_roof_extrusion": {
+      "role": "observation-only floor (uses no target)",
+      "params": {
+        "ground_k": 17,
+        "min_building_height": 3
+      },
+      "n_pred": 4102265,
+      "completion": {
+        "iou": 0.09154058191176342,
+        "precision": 0.09218955869501361,
+        "recall": 0.9285901946870496,
+        "tp": 378186,
+        "fp": 3724079,
+        "fn": 29083
+      },
+      "per_class_recall": {
+        "1": 0.9177827812724867,
+        "3": 0.7674421934283056,
+        "4": 0.9684110034891267
+      },
+      "unobserved": {
+        "strict": {
+          "iou": 0.06054354980254498,
+          "precision": 0.06100436159935626,
+          "recall": 0.8890741411944747,
+          "tp": 220766,
+          "fp": 3398090,
+          "fn": 27544
+        },
+        "mid": {
+          "iou": 0.039699435037760016,
+          "precision": 0.03997285551352605,
+          "recall": 0.8530250504928707,
+          "tp": 141487,
+          "fp": 3398090,
+          "fn": 24378
+        },
+        "tolerant": {
+          "iou": 0.03920204024441249,
+          "precision": 0.03934917206134998,
+          "recall": 0.9129242777030794,
+          "tp": 139189,
+          "fp": 3398090,
+          "fn": 13276
+        }
+      }
+    },
+    "B2_footprint_volume_fill_shell": {
+      "role": "footprint-informed upper reference (PEEKS at target footprint)",
+      "params": {
+        "mode": "shell"
+      },
+      "n_pred": 196747,
+      "completion": {
+        "iou": 0.41100508088535886,
+        "precision": 0.8942499758573192,
+        "recall": 0.4320019446606543,
+        "tp": 175941,
+        "fp": 20806,
+        "fn": 231328
+      },
+      "per_class_recall": {
+        "1": 0.9769039715884033,
+        "3": 0.5725964635979669,
+        "4": 0.3188864691873087
+      },
+      "unobserved": {
+        "strict": {
+          "iou": 0.35900373035909416,
+          "precision": 0.8479831962690021,
+          "recall": 0.38369779710845314,
+          "tp": 95276,
+          "fp": 17080,
+          "fn": 153034
+        },
+        "mid": {
+          "iou": 0.36342070021044576,
+          "precision": 0.7956106550510973,
+          "recall": 0.4008440599282549,
+          "tp": 66486,
+          "fp": 17080,
+          "fn": 99379
+        },
+        "tolerant": {
+          "iou": 0.3791972632634404,
+          "precision": 0.7900972090794017,
+          "recall": 0.42167710622109994,
+          "tp": 64291,
+          "fp": 17080,
+          "fn": 88174
+        }
+      }
+    }
+  }
+}
