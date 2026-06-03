@@ -390,3 +390,43 @@ Consequences:
 
 Status:
 Adopted (M0). Extends D6.
+
+## 2026-06-03 - M1/D8 - Metrics module is shared and multi-cutoff by design
+
+Context:
+M1 needs occupancy + unobserved-region metrics. The same numbers must be directly
+comparable across M2/M3/M4, and the M4 headline requires reporting the
+unobserved-completion metric under **three mask cutoffs** (strict ~35 % / mid /
+tolerant ~67 % facade-observed; see D6/D7) and showing "beats M1 baseline" survives
+moving the observation line. If M1's metrics are built around the single stored
+`unobserved_mask`, M4 has no comparable baseline and would force a redo.
+
+Decision:
+- The metrics module (`src/pointcraft/metrics/`) is **shared**, not M1-private:
+  M2/M3/M4 import the same functions so numbers are computed identically.
+- Its evaluation entry point takes **a set of mask definitions** (a dict of
+  `{cutoff_name: unobserved_mask}`) and reports `unobserved_iou` once per cutoff,
+  rather than a single fixed mask. `completion_iou`, precision/recall, and per-class
+  breakdown are reported alongside.
+- A `build_cutoff_masks` helper generates the strict/mid/tolerant masks from
+  `coords_target / coords_partial / sem_target` so any milestone can reproduce the
+  three cutoffs from a contract sample. The strict cutoff reproduces the stored
+  v0.2 `unobserved_mask`; mid/tolerant relax the facade rule (XY tolerance / drop
+  the mid-wall requirement) toward the ~67 % physical-grazing line (D7).
+- Unobserved-region IoU is computed over the **unobserved spatial region**
+  (voxels neither in the partial input nor flagged observed), so a predictor that
+  hallucinates occupancy in unseen free space is penalised (false positives count),
+  not just scored on recall.
+
+Reason:
+- Building multi-cutoff from day one is the one place M1 is easy to make too narrow
+  and force an M4 redo (per the EXECUTION_PLAN).
+- A shared module keeps M1's floor and M2+'s numbers on the same definition.
+
+Consequences:
+- `compute_masks` gains an additive, default-off `xy_tol` for facades so the
+  tolerant cutoff is expressible without changing v0.2 stored-mask behaviour.
+- M4 imports `build_cutoff_masks` + the evaluation entry point unchanged.
+
+Status:
+Adopted (M1).
