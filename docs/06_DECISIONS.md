@@ -430,3 +430,52 @@ Consequences:
 
 Status:
 Adopted (M1).
+
+## 2026-06-07 - M2/D9 - Backbone = spconv; output stays explicit/semantic-ready/queryable
+
+Context:
+M2 is the first learned model: partial occupancy → completed occupancy. Two things
+must be decided before any network code — the sparse-conv backbone (and its code
+references), and the **output representation**, which is the single non-obvious
+requirement that makes M3/M4/M5 possible.
+
+Decision:
+- **Backbone = spconv.** The viable SSC code references (SCPNet CVPR'23,
+  JS3C-Net AAAI'21) use it and the ecosystem is more mature than MinkowskiEngine
+  here. MinkowskiEngine is the **fallback only if spconv won't install** (decided in
+  Phase 0, not after building a model).
+- **Code-reference re-classification** (see 05_RELATED_WORK / roadmap §2–3):
+  - **S3CNet** = architecture-idea reference only (no reliable official code) — not a
+    skeleton to clone.
+  - **SCPNet / JS3C-Net** = the actual spconv code references (read for structure;
+    pinned to old spconv/CUDA, not run as-is).
+  - **GeoSVR** = conceptual reference only (image→differentiable-render, per-scene
+    optimization; not supervised completion; code not reusable) + active same-lab
+    line to watch — never imported.
+- **Output-representation constraint (the important one).** The network output is
+  **not** a black box that only yields an IoU. It MUST be:
+  - emitted in the **data-contract coords format** (same grid as `coords_target`),
+  - a per-voxel logit/occupancy you can **threshold** (not a metadata-less dense
+    boolean tensor),
+  - **world-placeable** — the voxel→world (EPSG:6677) transform stays intact so any
+    prediction can be put back in space and later carry a semantic/identity label.
+  This keeps the output **explicit, semantic-ready, and queryable** for M3 (semantic
+  head added without rework), M4 (observed→completed→GT unobserved-region viz), and
+  M5 (agent-queryable occupied/free/unknown + per-voxel identity).
+
+Reason:
+- spconv is the lowest-risk path with real code references on a modern stack.
+- The architecture is standard; the output contract is what carries the project.
+  Collapsing to a dense tensor with no grid metadata would silently block M4/M5.
+
+Consequences:
+- M2 first step = **single-tile overfit** on `09LD1874`; must beat the M1 B1 floor
+  (strict unobserved IoU 0.061) and is scored by the shared `pointcraft.metrics`
+  under strict/mid/tolerant. Occupancy head only (semantics = M3) but the head is
+  designed so a semantic head can be added later.
+- Multi-tile is a **later** M2 phase, blocked on the centroid tile-crop fix
+  (alignment rule 4 / GOTCHAS) — does not affect the single-tile step.
+- Phase 0 records the exact torch/spconv/CUDA versions that work on this machine.
+
+Status:
+Adopted (M2). Phase 0 result recorded in the M2 SESSION_LOG.

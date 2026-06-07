@@ -48,8 +48,12 @@
 ### 阶段 2 — SSC 主线（这是「重活」的核心谱系）
 - **SSCNet**（Song, CVPR 2017）— 任务开山，占据+语义联合预测的定义。
 - **LMSCNet**（2020）— 轻量 2D/3D 混合，理解 BEV 思路。
-- **S3CNet**（2020）⭐ — **直接作为骨架模板**：Minkowski + BEV 2D 分支 + 动态体素融合 + 几何感知损失。拿：整套体素 SSC 架构。
-- **JS3C-Net / SSC-RS / SCPNet** — 后续 SOTA，理解改进点（语义分割辅助、多尺度、补全先验）。
+- **S3CNet**（CoRL 2020）— **架构思路参考，非代码模板**（已更正 2026-06）：BEV 2D 分支 +
+  几何感知损失值得借鉴，但**无可靠官方代码**，不要当骨架克隆。
+- **SCPNet（CVPR'23，spconv+Cylinder3D）/ JS3C-Net（AAAI'21，spconv1.0）** ⭐ —
+  **M2 实际的 spconv 代码参考**（读结构：编码-解码、稀疏张量管线、loss）。两者都钉死在
+  **旧 spconv/CUDA**，只读设计、别指望在本机栈上直接跑。**SSC-RS** 等后续 SOTA 理解改进点
+  （语义分割辅助、多尺度、补全先验）。
 - **dual-path SSC**（2025, SemanticKITTI 62.6% IoU）— 当前 SOTA，对照基线。
 - *综述* "Semantic Scene Completion: A Survey" — 快速建立全局地图。
 
@@ -80,15 +84,20 @@
 
 | 环节 | 对接的原田成果 | 怎么接触 |
 |---|---|---|
-| 体素表示 / 表面重建 | **GeoSVR**（NeurIPS'25 Spotlight，稀疏体素表面重建，**开源**） | 直接读代码、借稀疏体素表示与表面正则思路 |
-| 整个"受限观测重建"命题 | 实验室官网 3D Reconstruction 方向："**limited observation 下的 3D/4D 重建**" | 你的命题就是它的城市离散化特例 |
-| 重建/修复任务定位 | 他们主办的 **CVPR'26 3DRR（3D Restoration & Reconstruction）Challenge** | 关注 challenge 的数据/指标，可作为对标或投稿目标 |
+| 体素表示（概念，非代码） | **GeoSVR**（NeurIPS'25 Spotlight；image→可微渲染、**逐场景优化**的表面重建）— ⚠ **非监督式补全、代码不可复用**（已更正 2026-06） | 仅作**概念参照**（"显式稀疏体素能得到准确完整几何"）+ 同实验室活跃线（Lin Gu 等），保持关注、不导入 |
+| 整个"受限观测重建"命题 ★ | 实验室 **Future Directions** 原话："**limited observation**"、"**estimating unobservable areas**"、"**a wide range of areas such as towns and suburbs**"、"**future prediction … by accumulating data**" | **direction-fit，非 method-identity**：PointCraft 的城市设定是该"广域"方向的一个**实例**。注意其原文说 **towns/suburbs**，**未**说"city/urban"——不要声称他们呼吁"城市尺度" |
+| ~~重建/修复任务定位~~ | ~~CVPR'26 3DRR Challenge~~ — ⚠ **已更正 2026-06**：该届 3DRR 是**低光/烟雾退化**复原，**不是**航测立面补全，**不作为本项目的目标/投稿 venue** | 对齐的是实验室**主方向**，不是这个 challenge |
 | 点云配准 / 部分匹配 | **Lepard**、**Neural Deformation Pyramid** | 多 tile / 多时相对齐时直接用 |
 | 神经渲染（外观/材质 stretch） | **NeRF 系**、**Luminance-GS / Aleth-NeRF / I²-NeRF**、3DGS | 若做立面外观补全，参考他们的渲染方法 |
 | 具身 / 下游 | **Cross-Embodiment Offline RL**、scene-graph grounding（SceneProp） | 把重建环境接成具身 agent 任务时对接 |
 | 语义场景理解 | DEJIMA（日语图像-VQA 数据集）、scene-graph 工作 | 语义层级设计、未来 vision-language 扩展参考 |
 
-**最强的两个直接接触点**：GeoSVR（体素重建，有代码可用）+ 实验室"limited-observation reconstruction"主线。你的工作可以诚实地表述为：把他们的体素重建 / 受限观测重建思路，迁移到**城市尺度航测 + 离散语义体素 + 具身输出**这个新设定。
+**项目定位（更正 2026-06）**：不再表述为"静态城市补全 + 借 GeoSVR 代码"。诚实表述为：
+**在受限观测下、由理解驱动的补全**，产出**可具身化、带身份语义的环境**；具身 / 世界模型
+是**未来工作愿景**（例如与实验室 R2-Dreamer 线对齐），**非当前交付物**。与实验室的关系是
+**方向契合（direction-fit）**——其 Future-Directions 的 "limited observation / estimating
+unobservable areas / towns and suburbs / future prediction by accumulating data" 正是本
+命题的上位方向；GeoSVR 仅为"显式稀疏体素可得完整几何"的**概念佐证**，不是可复用方法。
 
 ---
 
@@ -107,7 +116,7 @@
 
 - **M0 数据配对**（工程，快）：LiDAR 点云 ↔ LOD2 做成体素训练对（输入=部分占据，目标=完整占据+语义）。复用现有对齐代码。➜ 产出：可训练数据集。
 - **M1 确定性 baseline**（已基本完成）：现在的栅格化管线，作为对照下限。
-- **M2 学习式占据补全**（研究核心起步）：spconv UNet 从部分占据预测完整占据。指标：完成 IoU。➜ *接触点*：S3CNet 架构、GeoSVR 体素思路。
+- **M2 学习式占据补全**（研究核心起步）：spconv UNet 从部分占据预测完整占据。第一步=**单 tile 过拟合** `09LD1874`，须明显超过 M1 下限（strict 未观测 IoU 0.061）。指标：完成 IoU + 未观测 IoU（复用 `pointcraft.metrics` 三档 cutoff）。➜ *代码参考*：SCPNet/JS3C-Net（spconv，读结构）；*概念*：GeoSVR 显式体素。
 - **M3 + 语义双头**：加语义类别预测。指标：语义 mIoU。
 - **M4 立面/体量生成式补全**：专门评测"未观测区"补全质量（这是与 Point2Building 差异化、与原田"受限观测重建"对齐的核心卖点）。➜ *接触点*：limited-observation reconstruction、生成式补全。
 - **M5 具身 / MC 演示**：体素→Minecraft，可交互环境 demo。➜ *接触点*：MineDojo/具身线、cross-embodiment。
