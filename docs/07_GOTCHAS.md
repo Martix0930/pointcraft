@@ -38,6 +38,42 @@ Practical traps to avoid. Add entries as they bite.
 - `import pointcraft` stays cheap: heavy deps (laspy, mcschematic, pyvista,
   skimage) are imported **inside** submodules, not at package top level.
 - Learning libs (torch / spconv / Minkowski) are **not** installed before M2.
+- ⚠ The legacy baseline module `data/lod2.py` imports `PIL` **and** `skimage` at
+  module top level (not lazily). So `tests/test_target_occupancy.py` and any OBJ
+  `--target obj` path need the **`viz`** extra (`Pillow`, `scikit-image`) installed,
+  or they error with `ModuleNotFoundError`. Install `pip install -e ".[viz,dev]"`
+  for a green test suite.
+
+## M2 learning stack — validated on this machine (Phase 0, 2026-06-08)
+
+The 2020-2023 SSC code's #1 failure mode is spconv/CUDA version hell. Phase 0
+validated a **prebuilt-wheel** stack on this exact machine (no source build, no
+system CUDA toolkit — the wheels bundle the CUDA 12.6 runtime):
+
+- **Machine:** Windows 11, Python **3.13.2**, GPU **RTX 4060 Laptop (8 GB)**,
+  driver 596.49 (supports CUDA 12.6).
+- **Pinned versions:** `torch 2.9.1+cu126`, `spconv-cu126 2.3.8`,
+  `cumm-cu126 0.7.11`, `numpy 2.4.6`. CUDA available ✓; a minimal SubMConv3d +
+  strided SparseConv3d fwd/bwd on the real M0 `.npz` passes (peak ~424 MB).
+- **Reproduce (repo-local venv, keeps global Python clean):**
+  ```
+  python -m venv .venv
+  .venv/Scripts/python -m pip install --upgrade pip
+  .venv/Scripts/python -m pip install "torch==2.9.1+cu126" --index-url https://download.pytorch.org/whl/cu126
+  .venv/Scripts/python -m pip install spconv-cu126
+  .venv/Scripts/python -m pip install -e ".[viz,dev]"
+  .venv/Scripts/python scripts/check_spconv_env.py   # Phase 0 gate, must print GATE PASSED
+  ```
+- **All M2 work runs through `.venv/Scripts/python`** (the global Python 3.13 has no
+  torch/spconv, by design). `pip install -e .` alone does NOT pull torch/spconv —
+  the `[learn]` extra records names but the +cu126 build needs the index URL above.
+- Wheel availability checked before installing: `spconv-cu126` and the cu126 torch
+  index both ship **`cp313-win_amd64`** wheels (newer Python is fine here).
+  MinkowskiEngine fallback was **not** needed.
+- spconv `SparseConvTensor` indices are `[batch, i, j, k]` with `spatial_shape =
+  [I, J, K]` — i.e. the M0 contract `(i,j,k)↔(x,y,z)` order with a batch column
+  prepended. Keep this consistent with the data-contract coords so predictions stay
+  world-placeable (D9).
 
 ## Test data
 

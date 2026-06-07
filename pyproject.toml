@@ -31,8 +31,15 @@ viz = [
 mc = [
     "mcschematic>=1.2",
 ]
-# Learning stack — DO NOT install before M2. Introduced per task spec.
-#   torch, spconv (or MinkowskiEngine / torchsparse), pytorch-lightning
+# Learning stack (M2+). NOTE: torch + spconv need a CUDA-matched build that pip
+# cannot resolve from PyPI alone — install torch from the CUDA wheel index and the
+# matching spconv-cuXXX wheel directly. Exact commands + the versions
+# validated on this machine are in docs/07_GOTCHAS.md (M2 Phase 0). This extra only
+# records the package names; it intentionally does not pin the +cuXXX local version.
+learn = [
+    "torch",
+    "spconv-cu126",  # swap for spconv-cuXXX matching your CUDA; or MinkowskiEngine fallback
+]
 # Heavy geo stack — introduced only if a task needs it.
 #   open3d, pdal, citygml4j (Java)
 dev = [
