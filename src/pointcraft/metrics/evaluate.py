@@ -18,7 +18,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from ..data import load_sample_metadata
+from ..data import grid_from_metadata, load_sample_metadata
 from ..voxelization import VoxelGrid
 from .cutoffs import build_cutoff_masks
 from .occupancy import occupancy_scores, per_class_recall, unobserved_scores
@@ -43,11 +43,7 @@ def load_sample(npz_path: str) -> Sample:
     """Load a contract `.npz` into a `Sample` (arrays + grid from metadata)."""
     d = np.load(npz_path)
     meta = load_sample_metadata(d)
-    grid = VoxelGrid(
-        origin=np.asarray(meta["origin"], dtype=np.float64),
-        voxel_size=float(meta["voxel_size"]),
-        shape=np.asarray(meta["grid_shape"], dtype=np.int64),
-    )
+    grid = grid_from_metadata(meta)
     return Sample(
         coords_partial=d["coords_partial"],
         feats_partial=d["feats_partial"],

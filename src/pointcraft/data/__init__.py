@@ -14,6 +14,7 @@ from .sample import (
     DATASET_VERSION,
     build_metadata,
     compute_masks,
+    grid_from_metadata,
     load_sample_metadata,
     write_sample_npz,
 )
@@ -41,6 +42,7 @@ __all__ = [
     "FACADE_LABEL",
     "compute_masks",
     "build_metadata",
+    "grid_from_metadata",
     "write_sample_npz",
     "load_sample_metadata",
     "DATASET_VERSION",

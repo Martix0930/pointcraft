@@ -127,6 +127,20 @@ def compute_masks(
     return observed, (1 - observed).astype(np.uint8)
 
 
+def grid_from_metadata(meta: dict[str, Any]) -> VoxelGrid:
+    """Rebuild the shared :class:`VoxelGrid` from a sample's ``metadata`` block.
+
+    The inverse of the grid fields written by :func:`build_metadata`; used by any
+    consumer of a contract `.npz` (metrics, the M2 sparse-tensor adapter, viz) so
+    nobody re-derives grid geometry by hand.
+    """
+    return VoxelGrid(
+        origin=np.asarray(meta["origin"], dtype=np.float64),
+        voxel_size=float(meta["voxel_size"]),
+        shape=np.asarray(meta["grid_shape"], dtype=np.int64),
+    )
+
+
 def build_metadata(
     grid: VoxelGrid,
     *,
