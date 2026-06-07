@@ -15,7 +15,9 @@ M0 contract) live in ``predictors`` (B1 naive roof extrusion) and ``volume`` (B2
 footprint volume fill); they are pure numpy and safe to import directly.
 """
 from .predictors import (
+    candidate_support,
     estimate_ground_k,
+    morphological_boundary,
     naive_roof_extrusion,
 )
 from .volume import footprint_volume_fill
@@ -23,5 +25,7 @@ from .volume import footprint_volume_fill
 __all__ = [
     "naive_roof_extrusion",
     "estimate_ground_k",
+    "candidate_support",
+    "morphological_boundary",
     "footprint_volume_fill",
 ]

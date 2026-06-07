@@ -137,3 +137,72 @@ def naive_roof_extrusion(
         return pred
     pred = np.unique(pred, axis=0)
     return pred.astype(np.int32)
+
+
+def candidate_support(
+    coords_partial: np.ndarray,
+    grid: VoxelGrid,
+    **kwargs,
+) -> np.ndarray:
+    """Input-only candidate volume a completer may predict over: B1 extrusion ∪ observed.
+
+    `(M,3)` int32 unique. Uses **no target** — the B1 solid extrusion (where building
+    mass plausibly is) unioned with the observed voxels. M2's learned completer
+    classifies occupied/free within this; the deterministic shell of it
+    (:func:`morphological_boundary`) is the B3 diagnostic. ``kwargs`` pass through to
+    :func:`naive_roof_extrusion`.
+    """
+    sup = naive_roof_extrusion(coords_partial, grid, **kwargs)
+    allc = np.concatenate(
+        [sup.astype(np.int64), np.asarray(coords_partial, dtype=np.int64).reshape(-1, 3)],
+        axis=0,
+    )
+    return np.unique(allc, axis=0).astype(np.int32)
+
+
+_FACE6 = [(1, 0, 0), (-1, 0, 0), (0, 1, 0), (0, -1, 0), (0, 0, 1), (0, 0, -1)]
+
+
+def morphological_boundary(
+    coords: np.ndarray,
+    grid: VoxelGrid,
+    *,
+    connectivity: int = 6,
+) -> np.ndarray:
+    """B3 — deterministic surface (boundary) of a solid voxel set. **No learning.**
+
+    A voxel is kept iff at least one of its `connectivity`-neighbours is **absent**
+    from `coords` (or lies outside the grid) — i.e. it lies on the exposed surface of
+    the solid. Interior voxels (fully surrounded) are dropped. Pure set algebra on the
+    grid; returns `(M,3)` int32.
+
+    Diagnostic use (M2): run on the candidate support a learned completer classifies
+    over (e.g. ``naive_roof_extrusion`` ∪ observed). If this deterministic shell
+    already scores high, the support construction is "answering the question" and a
+    learned model's headroom is inflated; if it scores low, the model is doing real
+    work. On `09LD1874` it is **low** (strict unobserved IoU ≈ 0.15 vs the learned
+    0.82), because per-column extrusion merges adjacent buildings into solid blocks
+    that bury the true facades inside the volume.
+    """
+    if connectivity != 6:
+        raise ValueError("only 6-connectivity (face neighbours) is implemented")
+    coords = np.asarray(coords, dtype=np.int64).reshape(-1, 3)
+    if coords.shape[0] == 0:
+        return np.zeros((0, 3), dtype=np.int32)
+    I, J, K = (int(s) for s in grid.shape)
+    sj, sk = J, K
+
+    def _keys(c):
+        return c[:, 0] * (sj * sk) + c[:, 1] * sk + c[:, 2]
+
+    ks_sorted = np.sort(_keys(coords))
+    i, j, k = coords[:, 0], coords[:, 1], coords[:, 2]
+    interior = np.ones(coords.shape[0], dtype=bool)
+    for dx, dy, dz in _FACE6:
+        ii, jj, kk = i + dx, j + dy, k + dz
+        valid = (ii >= 0) & (ii < I) & (jj >= 0) & (jj < J) & (kk >= 0) & (kk < K)
+        nk = np.where(valid, ii * (sj * sk) + jj * sk + kk, -1)
+        pos = np.clip(np.searchsorted(ks_sorted, nk), 0, len(ks_sorted) - 1)
+        present = valid & (ks_sorted[pos] == nk)
+        interior &= present
+    return coords[~interior].astype(np.int32)

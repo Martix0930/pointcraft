@@ -22,7 +22,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-from ..baseline.predictors import naive_roof_extrusion
+from ..baseline.predictors import candidate_support
 from ..data.sparse import occupancy_logits_to_coords, to_sparse_tensor
 from ..metrics import build_cutoff_masks, evaluate
 from ..metrics.evaluate import Sample
@@ -41,15 +41,8 @@ def _keys(coords: np.ndarray, grid) -> np.ndarray:
 
 
 def build_candidate_support(sample: Sample) -> np.ndarray:
-    """Input-only candidate voxels: B1 extrusion volume ∪ observed voxels.
-
-    Returns `(S, 3)` int32 unique, sorted. Uses no target data.
-    """
-    sup = naive_roof_extrusion(sample.coords_partial, sample.grid)
-    allc = np.concatenate(
-        [sup.astype(np.int64), np.asarray(sample.coords_partial, dtype=np.int64)], axis=0
-    )
-    return np.unique(allc, axis=0).astype(np.int32)
+    """Input-only candidate voxels: B1 extrusion ∪ observed (delegates to baseline)."""
+    return candidate_support(sample.coords_partial, sample.grid)
 
 
 def build_features(sample: Sample, support: np.ndarray) -> np.ndarray:
