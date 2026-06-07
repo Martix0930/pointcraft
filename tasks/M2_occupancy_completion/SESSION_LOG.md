@@ -147,3 +147,25 @@ semantic-ready (M3), queryable (M5); not a metadata-less dense tensor.
   **Suite 54 (venv) / 47 + 7 skipped (global).**
 - DoD (first step) all ticked. Two divergent next paths flagged (multi-tile —
   blocked on centroid-crop; or M3 semantics); neither auto-started.
+
+### 2026-06-08 — M2 diagnostic: deterministic shell of the support (B3)
+
+Zero-cost check requested before choosing the next fork: *does the candidate support
+construction "answer the question" for the model?* Added `baseline.morphological_boundary`
+(B3, pure-numpy 6-face surface extraction) + `baseline.candidate_support` (moved the
+input-only support builder out of `train` so it's torch-free) +
+`scripts/diagnose_support_shell.py` (reusable per tile).
+
+**Result on `09LD1874`** (`exp_002/diagnostic_morph_shell.json`), unobserved IoU:
+- full solid support (≈B1): strict 0.061
+- **morphological shell (deterministic): strict 0.149** / mid 0.114 / tol 0.116
+- M2 trained: strict 0.817
+
+The deterministic shell is **low (0.15 ≪ 0.6)** → the support does **not** trivialise
+the task; the learned 0.82 is real work. *Why low:* per-column B1 extrusion merges
+adjacent buildings into solid blocks, so true facades sit **inside** the merged
+volume (not on its 6-face surface) — naive surface extraction misses them (recall
+0.34, precision 0.24), while the model recovers them (P/R 0.92). **Decision implied:**
+"swap the support / generative decoder" is *not* the primary issue → the clean next
+step is **multi-tile generalization** (fork 1), still gated on the centroid-crop fix;
+re-run this diagnostic per tile to confirm it stays low. Tests: 51 (global) / 58 (venv).

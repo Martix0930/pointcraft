@@ -1,0 +1,27 @@
+{
+  "tile_id": "tokyo_station",
+  "support_size": 4172459,
+  "shell_size": 570484,
+  "predictions": {
+    "full_support_solid": {
+      "completion_iou": 0.0902,
+      "precision": 0.091,
+      "recall": 0.93,
+      "unobserved_iou": {
+        "strict": 0.0605,
+        "mid": 0.0397,
+        "tolerant": 0.0392
+      }
+    },
+    "morphological_shell": {
+      "completion_iou": 0.1645,
+      "precision": 0.242,
+      "recall": 0.339,
+      "unobserved_iou": {
+        "strict": 0.1493,
+        "mid": 0.1144,
+        "tolerant": 0.116
+      }
+    }
+  }
+}

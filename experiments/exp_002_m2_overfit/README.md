@@ -26,6 +26,17 @@ val split); multi-tile is a later M2 phase (blocked on the centroid-crop fix).
 - completion IoU **0.8535** (precision 0.924, recall 0.918)
 - per-class recall: ground 0.920 / roof 0.756 / facade 0.956
 
+
+## Deterministic diagnostic (B3) — is the support answering the question?
+
+`scripts/diagnose_support_shell.py` scores the **morphological shell** of the
+candidate support (no training) — see `diagnostic_morph_shell.json`. On this
+tile it gets only **strict unobserved IoU ≈ 0.15** (vs the learned 0.82): the
+support does **not** trivialise the task — per-column extrusion merges adjacent
+buildings into solid blocks that bury the true facades inside the volume, so a
+naive surface extraction misses them (recall 0.34) while the model recovers
+them (recall 0.92). The learned 0.82 is real work, not support leakage.
+
 See `metrics.json` for full scores + training history; `viz_overfit.png` for a
 rough observed→completed→GT slice; `pred_coords.npy` is the prediction
 (gitignored artifact).
