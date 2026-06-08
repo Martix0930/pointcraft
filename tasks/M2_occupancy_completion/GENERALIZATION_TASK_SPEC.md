@@ -39,8 +39,28 @@ a fraction of the cost.
 
 ### G0 — Ignore-margin border band (the cheap blocker fix)
 - **Definition.** A voxel is *border-ignored* if
-  `min(i, I-1-i, j, J-1-j) < margin` (XY only; z untouched). Default `margin` ≈ 8
-  voxels — document and make it a config/CLI knob.
+  `min(i, I-1-i, j, J-1-j) < margin` (XY only; z untouched). `margin` is a
+  config/CLI knob.
+- **Pick `margin` from data, do NOT default to 8.** A wide band ignores legitimate
+  edge-building supervision (costly when fork-1 data is scarce). Measured tradeoff on
+  09LD1874 (grid 400×300; "poison-ish" = visible-tall column with no target — note it
+  is **dominated by trees/clutter**, which are *correctly* empty, so it overstates the
+  true centroid-clip poison and understates its edge-concentration):
+
+  | margin | band area | target voxels ignored (cost) | poison-ish cols in band |
+  |---|---|---|---|
+  | 3 | 3.5% | 10,467 (2.6% of target) | 1,391 (6.0%) |
+  | 5 | 5.8% | 18,439 (4.5%) | 2,202 (9.5%) |
+  | 6 | 6.9% | 22,803 (5.6%) | 2,589 (11.1%) |
+  | 8 | 9.1% | 31,530 (7.7%) | 3,325 (14.3%) |
+
+  The poison-ish count grows ~linearly with band area (≈ tile-wide tree density, **not**
+  edge-concentrated) → the genuine straddling-building artifact lives in the outer
+  1–2 rings, so a **small margin suffices**. **Default `margin = 5`** (covers the
+  straddling rings; costs ~4.5% of target supervision); 8 would throw away ~7.7% for
+  little extra cleanup. Regenerate this table per dataset (cheap) and set `margin`
+  from it. NB: geometry-overlap clipping (deferred) would clean the poison **without**
+  the supervision loss — revisit if 4–5% lost supervision proves to matter.
 - **Mechanism (no schema break preferred).** Border-ignored voxels are excluded from
   **both** the training loss **and** the metrics (both prediction and target sides),
   so a dropped border building can no longer teach "visible roof = empty", and the
@@ -84,6 +104,19 @@ a fraction of the cost.
 ### G3 — Evaluate + record
 - Held-out tile: unobserved IoU (3 cutoffs) vs that tile's **B1 and B3**; state
   whether both honesty-bar clauses hold.
+- **Required: report the candidate-support recall ceiling** on the held-out tile —
+  the fraction of target voxels (overall **and** restricted to `unobserved_mask`)
+  that fall inside the candidate support. IoU only measures "how accurate *within* the
+  candidate region"; this measures "is the candidate region *big enough*". On
+  09LD1874 the ceiling is ~0.93 overall / 0.93 unobserved (B1 merges dense blocks and
+  buries interior walls outside the support — the known coverage weak point). This
+  splits a disappointing IoU into two diagnoses:
+    - high recall ceiling + low IoU → **model problem** (→ improve the decoder/training);
+    - low recall ceiling → **coverage problem** (target genuinely outside the
+      support) → *this* is the trigger to switch to a harder/generative support, and
+      must not be misread as a model failure.
+  Report it per tile (cheap; `pred = candidate_support` through the same metrics gives
+  the ceiling directly).
 - Experiment record `experiments/exp_NNN_m2_generalize/` (README + metrics.json +
   per-tile B3 json + a val observed→completed→GT slice).
 - SESSION_LOG: train/val tiles, the generalization verdict, next step (M3 semantics,
@@ -92,7 +125,8 @@ a fraction of the cost.
 ---
 
 ## Acceptance
-- [ ] G0 ignore-margin implemented; metrics support an exclusion region; unit-tested;
+- [ ] G0 ignore-margin implemented; **`margin` chosen from the per-dataset cost/poison
+      table (default 5, not 8)**; metrics support an exclusion region; unit-tested;
       B3 re-checked with the band; overfit number reported with/without band.
 - [ ] ≥ K train tiles + ≥1 disjoint held-out val tile produced (CityGML-coverage
       verified, not the bbox flag).
@@ -100,6 +134,8 @@ a fraction of the cost.
       held-out tile via the shared `pointcraft.metrics` under all three cutoffs.
 - [ ] Held-out unobserved IoU **> B1 and > B3** on that tile (both clauses), or the
       gap is analysed and the next step chosen accordingly.
+- [ ] Held-out **candidate-support recall ceiling reported** (overall + unobserved),
+      so a low IoU is attributable to model vs coverage.
 - [ ] Experiment recorded; SESSION_LOG updated.
 
 ## Scope guards
