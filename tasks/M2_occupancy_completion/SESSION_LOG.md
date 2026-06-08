@@ -169,3 +169,27 @@ volume (not on its 6-face surface) — naive surface extraction misses them (rec
 "swap the support / generative decoder" is *not* the primary issue → the clean next
 step is **multi-tile generalization** (fork 1), still gated on the centroid-crop fix;
 re-run this diagnostic per tile to confirm it stays low. Tests: 51 (global) / 58 (venv).
+
+### 2026-06-08 — M2 fork-1 G0: ignore-margin border fix (metrics + trainer)
+
+Spec first absorbed two refinements (committed): **data-driven margin** (default 5,
+not 8 — measured cost/poison table on 09LD1874: margin 8 ignores 7.7% of target
+supervision vs 4.5% at 5, and the poison proxy is tree-dominated / not
+edge-concentrated) and a **required support-recall-ceiling** report in G3 (so a weak
+held-out IoU separates model-problem from coverage-problem).
+
+G0 implementation (compute-at-use, **no `dataset_version` bump**):
+- `metrics.border_keep_mask(coords, grid, margin)` + `evaluate(..., border_margin=)`
+  excludes the XY border band from **both** pred and target (cutoff masks filtered
+  row-aligned). `train/overfit.py` excludes the band from the **loss** too;
+  `scripts/diagnose_support_shell.py --margin` and `run_m2_overfit.py --border-margin`
+  wired. `tests/test_border_margin.py` (numpy): keep-mask drops only the band,
+  border FP/FN excluded both sides.
+- **Overfit number with/without band (re-eval saved pred, no retrain):**
+  no-band strict 0.817 / band(m=5) strict 0.819 — **negligible**, i.e. the single-tile
+  result was never inflated by border contamination (expected: small directional bias).
+- **B3 with band (m=5):** morphological shell strict 0.164 (vs 0.149 no-band) — still
+  ≪ 0.6, conclusion unchanged. (`diagnostic_morph_shell_m5.json`.)
+- Tests: **global 54 + 2 skipped; venv 61.**
+
+G0 done as a self-contained unit; the multi-tile skeleton (G1–G3) is the next step.
