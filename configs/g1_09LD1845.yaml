@@ -1,0 +1,25 @@
+# M2 fork-1 G1.c per-tile data config. Auto-generated from tokyo_station.yaml.
+# Paths resolve relative to this config's folder. CLI --out sets the .npz path.
+# All 9 LOD2 GML grids are listed; run_m0 keeps only surfaces whose ring centroid
+# lands in this tile's grid XY extent (centroid-in-footprint), so coverage is
+# correct without a manual tile->grid map.
+
+name: 09LD1845
+crs: "EPSG:6677"
+cell_size: 1.0
+
+las:
+  - "../data/raw/lidar/09LD1845.las"
+
+citygml_tiles:
+  - "../data/raw/citygml/udx/bldg/53394600_bldg_6697_2_op.gml"
+  - "../data/raw/citygml/udx/bldg/53394601_bldg_6697_2_op.gml"
+  - "../data/raw/citygml/udx/bldg/53394602_bldg_6697_2_op.gml"
+  - "../data/raw/citygml/udx/bldg/53394610_bldg_6697_2_op.gml"
+  - "../data/raw/citygml/udx/bldg/53394611_bldg_6697_2_op.gml"
+  - "../data/raw/citygml/udx/bldg/53394612_bldg_6697_2_op.gml"
+  - "../data/raw/citygml/udx/bldg/53394620_bldg_6697_2_op.gml"
+  - "../data/raw/citygml/udx/bldg/53394621_bldg_6697_2_op.gml"
+  - "../data/raw/citygml/udx/bldg/53394622_bldg_6697_2_op.gml"
+
+output_dir: "outputs/m0/g1"
