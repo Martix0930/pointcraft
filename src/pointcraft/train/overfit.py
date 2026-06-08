@@ -45,8 +45,24 @@ def build_candidate_support(sample: Sample) -> np.ndarray:
     return candidate_support(sample.coords_partial, sample.grid)
 
 
-def build_features(sample: Sample, support: np.ndarray) -> np.ndarray:
-    """Per-candidate input features `(S, 5)` float32 (see FEATURE_NAMES). Input-only."""
+def build_features(
+    sample: Sample, support: np.ndarray, *, z_scale: float | None = None
+) -> np.ndarray:
+    """Per-candidate input features `(S, 5)` float32 (see FEATURE_NAMES). Input-only.
+
+    ``z_scale`` controls the normalisation of the **height channels** (``k_frac``,
+    ``depth_below_top``, ``above_ground``, ``height_feat``):
+
+      * ``None`` (default) — divide by the per-tile grid height ``K`` / LiDAR height
+        range. Keeps the single-tile overfit behaviour bit-for-bit. **Not
+        tile-invariant**: ``K`` ranges 94→259 across the M2 tiles, so the same
+        physical structure yields different features on different tiles.
+      * a float (metres) — divide by this **fixed physical scale** instead, so the
+        channels become "metres below column top / above ground / up", which mean
+        the same thing on every tile (M2 generalization §2 risk-2: features must be
+        tile-invariant or the model keys onto a tile-specific grid height). The
+        voxel size is 1 m, so a voxel index *is* a metre offset.
+    """
     grid = sample.grid
     S = np.asarray(support, dtype=np.int64)
     K = float(grid.shape[2])
@@ -62,10 +78,12 @@ def build_features(sample: Sample, support: np.ndarray) -> np.ndarray:
     height_feat = np.zeros(len(S), dtype=np.float32)
     z = sample.feats_partial[:, 0].astype(np.float32)
     zmin, zptp = float(z.min()), float(np.ptp(z)) or 1.0
-    height_feat[matched] = ((z[order][pos][matched] - zmin) / zptp)
+    hf_denom = z_scale if z_scale is not None else zptp
+    height_feat[matched] = ((z[order][pos][matched] - zmin) / hf_denom)
 
     k = S[:, 2].astype(np.float32)
-    k_frac = k / K
+    denom = float(z_scale) if z_scale is not None else K
+    k_frac = k / denom
 
     # per-column top of the support and a ground reference (input-derived)
     col = S[:, 0] * int(grid.shape[1]) + S[:, 1]
@@ -73,8 +91,8 @@ def build_features(sample: Sample, support: np.ndarray) -> np.ndarray:
     coltop = np.full(ucol.shape[0], -1e9, dtype=np.float64)
     np.maximum.at(coltop, inv, k)
     ground = float(np.percentile(S[:, 2], 1))
-    depth_below_top = (coltop[inv] - k) / K
-    above_ground = (k - ground) / K
+    depth_below_top = (coltop[inv] - k) / denom
+    above_ground = (k - ground) / denom
 
     return np.stack(
         [observed, height_feat, k_frac, depth_below_top.astype(np.float32),
