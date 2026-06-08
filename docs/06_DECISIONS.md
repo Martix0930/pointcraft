@@ -479,3 +479,46 @@ Consequences:
 
 Status:
 Adopted (M2). Phase 0 result recorded in the M2 SESSION_LOG.
+
+## 2026-06-08 - M2/D10 - Height features normalized by a fixed physical scale (`z_scale`), not per-tile grid height
+
+Context:
+M2 fork-1 G2 (multi-tile generalization) is the first time the model sees more than
+one tile. The single-tile `build_features` (overfit) normalized the height channels
+(`k_frac`, `depth_below_top`, `above_ground`, `height_feat`) by the **per-tile grid
+height `K`** (number of 1 m z-layers). Across the G1 tiles `K` ranges **94 → 259**, so
+"5 m below the column roof" maps to 0.053 on tile 09LD1845 (K=94) but 0.019 on 09LD1885
+(K=259) — the **same physical structure produces different features**, and a model can
+key onto the tile-specific `K`. This is the §2 "features must be tile-invariant or
+generalization collapses" risk, confirmed by printing cross-tile feature distributions.
+
+Decision:
+- Add a `z_scale: float | None` parameter to `build_features`. When set (G2 uses
+  **50 m**), the height channels are divided by this **fixed physical scale** instead of
+  `K`, so e.g. `depth_below_top = 0.36` means "18 m below the column roof" on **every**
+  tile. The voxel size is 1 m, so a voxel index is already a metre offset.
+- `z_scale = None` (default) keeps the per-tile `K` behaviour, preserving the single-tile
+  overfit path **bit-for-bit** (no regression to the 0.817 result). Only the multi-tile
+  `train/generalize.py` opts into the fixed scale.
+- References stay **tile-relative** (column top, tile-ground percentile), so no absolute
+  elevation / coordinate leaks in.
+
+Reason:
+- Physical, tile-invariant features are a prerequisite for cross-tile generalization;
+  the per-tile `K` divisor coupled the features to an irrelevant grid dimension.
+- Keeping `None` as default avoids touching the validated single-tile result while the
+  fix lands only where it is needed.
+
+Consequences:
+- G2 held-out (09LD2814) reaches strict unobserved IoU **0.251 = 1.52× the B3 shell**
+  (verdict A\*, qualified generalization) — see `experiments/exp_003_m2_generalize/`.
+- The residual cross-tile spread after the fix (1885 reaching higher feature values) is
+  **real domain variation** (K=259 is genuinely taller), **not** an artifact — must not
+  be "normalized away".
+- Hazard to revisit: `z_scale=50` pushes structures >50 m into the >1 feature range;
+  high-rise extrapolation is bounded by the tallest structure seen in training. Check
+  this before any architecture change **if** a future verdict-B failure concentrates on
+  high-rise facades.
+
+Status:
+Adopted (M2 fork-1 G2). Recorded in the M2 SESSION_LOG (G2 entry).
