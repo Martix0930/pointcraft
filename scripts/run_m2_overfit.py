@@ -49,6 +49,8 @@ def main(argv=None) -> int:
     ap.add_argument("--lr", type=float, default=1e-3)
     ap.add_argument("--base", type=int, default=16)
     ap.add_argument("--eval-every", type=int, default=50)
+    ap.add_argument("--border-margin", type=int, default=0,
+                    help="G0 ignore-margin: exclude the XY border band from loss + metrics")
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--no-amp", action="store_true")
     ap.add_argument("--no-viz", action="store_true")
@@ -66,6 +68,7 @@ def main(argv=None) -> int:
     res = train_overfit(
         sample, iters=args.iters, lr=args.lr, base=args.base,
         eval_every=args.eval_every, seed=args.seed, amp=not args.no_amp,
+        border_margin=args.border_margin,
     )
     peak_mb = torch.cuda.max_memory_allocated() / 1e6
 
@@ -87,7 +90,8 @@ def main(argv=None) -> int:
         "support_size": res.support_size,
         "best_prob_threshold": res.best_threshold,
         "config": {"iters": args.iters, "lr": args.lr, "base": args.base,
-                   "amp": not args.no_amp, "seed": args.seed},
+                   "amp": not args.no_amp, "seed": args.seed,
+                   "border_margin": args.border_margin},
         "code_commit": _git_commit(),
         "peak_cuda_mb": round(peak_mb, 1),
         "metrics": res.metrics,

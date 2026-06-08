@@ -34,6 +34,24 @@ def _ravel(coords: np.ndarray, grid: VoxelGrid) -> np.ndarray:
     return c[:, 0] * (sj * sk) + c[:, 1] * sk + c[:, 2]
 
 
+def border_keep_mask(coords: np.ndarray, grid: VoxelGrid, margin: int) -> np.ndarray:
+    """(N,) bool — True for voxels **outside** the XY border band of width `margin`.
+
+    A voxel is border-*ignored* (kept=False) if
+    ``min(i, I-1-i, j, J-1-j) < margin`` (z untouched). `margin <= 0` keeps all.
+    Used to neutralise the centroid tile-crop contamination (M2 generalization G0):
+    a building straddling a tile edge can have visible roof LiDAR inside the tile but
+    its CityGML target dropped, which would otherwise supervise "visible roof = empty".
+    Excluding the band from both loss and metrics removes that directional bias.
+    """
+    c = np.asarray(coords, dtype=np.int64).reshape(-1, 3)
+    if margin is None or margin <= 0:
+        return np.ones(c.shape[0], dtype=bool)
+    I, J = int(grid.shape[0]), int(grid.shape[1])
+    i, j = c[:, 0], c[:, 1]
+    return (i >= margin) & (i < I - margin) & (j >= margin) & (j < J - margin)
+
+
 @dataclass(frozen=True)
 class Scores:
     """Occupancy scores for one (pred, target) comparison over some region."""

@@ -11,6 +11,7 @@ from .cutoffs import CUTOFFS, build_cutoff_masks
 from .evaluate import Sample, evaluate, load_sample
 from .occupancy import (
     Scores,
+    border_keep_mask,
     occupancy_scores,
     per_class_recall,
     unobserved_scores,
@@ -21,6 +22,7 @@ __all__ = [
     "occupancy_scores",
     "unobserved_scores",
     "per_class_recall",
+    "border_keep_mask",
     "CUTOFFS",
     "build_cutoff_masks",
     "Sample",

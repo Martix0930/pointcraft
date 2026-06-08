@@ -24,7 +24,7 @@ import torch.nn as nn
 
 from ..baseline.predictors import candidate_support
 from ..data.sparse import occupancy_logits_to_coords, to_sparse_tensor
-from ..metrics import build_cutoff_masks, evaluate
+from ..metrics import border_keep_mask, build_cutoff_masks, evaluate
 from ..metrics.evaluate import Sample
 from ..models.completion_unet import OccupancyCompletionUNet
 
@@ -131,6 +131,7 @@ def train_overfit(
     eval_every: int = 50,
     pos_weight: float | None = None,
     train_full: bool = True,
+    border_margin: int = 0,
     max_neg_ratio: float = 2.0,
     prob_thresholds=DEFAULT_PROB_THRESHOLDS,
     device: str = "cuda",
@@ -153,12 +154,25 @@ def train_overfit(
     labels = build_labels(sample, support)
     x_full = to_sparse_tensor(support, feats, sample.grid, device=device)
 
+    # G0: exclude the XY border band from the TRAINING loss (it carries the centroid
+    # tile-crop contamination). Scoring excludes it too via evaluate(border_margin=).
+    keep = border_keep_mask(support, sample.grid, border_margin)
+    if border_margin and border_margin > 0:
+        log(f"[border]  margin={border_margin}: {int((~keep).sum()):,} candidates "
+            f"({100*(~keep).mean():.1f}%) excluded from loss + metrics")
+
     if train_full:
-        x_tr, ltr = x_full, labels
+        tr = np.where(keep)[0]
+        if border_margin and border_margin > 0:
+            x_tr = to_sparse_tensor(support[tr], feats[tr], sample.grid, device=device)
+        else:
+            x_tr = x_full
+        ltr = labels[tr]
         log(f"[support] full {support.shape[0]:,} (pos {int(labels.sum()):,}, "
-            f"{100*labels.mean():.1f}%); training on full support")
+            f"{100*labels.mean():.1f}%); training on {len(tr):,} (full support)")
     else:
         tr = _subsample_train(feats, labels, max_neg_ratio=max_neg_ratio, seed=seed)
+        tr = tr[keep[tr]]
         x_tr = to_sparse_tensor(support[tr], feats[tr], sample.grid, device=device)
         ltr = labels[tr]
         log(f"[support] full {support.shape[0]:,}; train subset {tr.shape[0]:,}")
@@ -187,7 +201,7 @@ def train_overfit(
         best = None
         for p, t in zip(prob_thresholds, logit_thr):
             pred = occupancy_logits_to_coords(support, logits, threshold=t)
-            res = evaluate(pred, sample, cutoffs=cutoffs)
+            res = evaluate(pred, sample, cutoffs=cutoffs, border_margin=border_margin)
             if best is None or res["unobserved"]["strict"]["iou"] > best[1]["unobserved"]["strict"]["iou"]:
                 best = (pred, res, p)
         return best  # (pred, res, prob)

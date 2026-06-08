@@ -31,6 +31,8 @@ def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description="deterministic support-shell diagnostic")
     ap.add_argument("--npz", default=os.path.join(REPO, "outputs", "m0", "tokyo_citygml.npz"))
     ap.add_argument("--out", default=None, help="optional JSON to write the numbers to")
+    ap.add_argument("--margin", type=int, default=0,
+                    help="border ignore-margin (G0): exclude the XY border band from scoring")
     args = ap.parse_args(argv)
 
     from pointcraft.baseline import candidate_support, morphological_boundary
@@ -47,7 +49,7 @@ def main(argv=None) -> int:
     out = {"tile_id": s.metadata["tile_id"], "support_size": int(len(support)),
            "shell_size": int(len(shell)), "predictions": {}}
     for name, pred in [("full_support_solid", support), ("morphological_shell", shell)]:
-        r = evaluate(pred, s, cutoffs=cut)
+        r = evaluate(pred, s, cutoffs=cut, border_margin=args.margin)
         u = {c: round(r["unobserved"][c]["iou"], 4) for c in ("strict", "mid", "tolerant")}
         out["predictions"][name] = {"completion_iou": round(r["completion"]["iou"], 4),
                                     "precision": round(r["completion"]["precision"], 3),
