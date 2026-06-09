@@ -23,6 +23,13 @@ import os
 import subprocess
 import sys
 
+# Reduce CUDA fragmentation OOM: with variable tile sizes (support 1.9M→3.7M voxels)
+# and a partially-occupied 8 GB GPU, the default allocator can fail a large
+# contiguous alloc despite free memory. Must be set before torch initialises CUDA
+# (torch is imported lazily inside main, so module import time is early enough).
+os.environ.setdefault("PYTORCH_ALLOC_CONF", "expandable_segments:True")          # torch >= 2.5
+os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")      # older torch (deprecated alias)
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(HERE)
 sys.path.insert(0, os.path.join(REPO, "src"))
@@ -68,6 +75,13 @@ def _load_bar(b3_json: str) -> dict:
 
 def _verdict(val_unobs: dict, bar: dict, ceiling: dict, history: list | None = None) -> dict:
     """§4 decision tree on the held-out unobserved IoU (strict-led).
+
+    ⚠ SINGLE-RUN, INDICATIVE ONLY. The A/A\* labels are **deprecated** as a headline
+    conclusion: the held-out IoU has ~0.015 run-to-run non-determinism (spconv GPU
+    atomics), large enough to flip A↔A\* at the tolerant cutoff between identical runs
+    (see exp_003 `peak_confirm.json`). The canonical verdict is **per-cutoff over
+    multiple runs** — strict robustly clears B3, mid marginal, tolerant borderline.
+    Use this function for per-run diagnostics, not for the citable verdict.
 
       A   — clears max(B1,B3) on all 3 cutoffs (clean generalization).
       A*  — strict clearly ABOVE B3 (and > B1) but not a 3/3 sweep (qualified

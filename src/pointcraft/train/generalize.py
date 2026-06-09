@@ -8,21 +8,29 @@ never trained on?
 Built on the single-tile `overfit.py` path (same candidate support / features /
 labels / metrics), with three multi-tile-specific disciplines from the G2 exec spec:
 
-  * **Memory (8 GB):** batch = 1 tile / step, **no** multi-tile batching. Only one
-    tile's sparse tensor lives on the GPU at a time (built per step, freed after).
-    Per-tile CPU arrays (support/feats/labels) are precomputed once — they are small.
-  * **Tile-invariant features (§2 risk-2):** the height channels are normalised by a
-    **fixed physical scale** (`z_scale`, metres) rather than the per-tile grid height
-    `K` (which ranges 94→259 here). Otherwise the same physical structure yields
-    different features per tile and the model keys onto a tile-specific `K`.
-  * **No negative subsampling (§2 risk-1):** submanifold neighbourhoods break under
-    downsampling, so we train on the full (border-kept) support and handle imbalance
-    with a per-tile `pos_weight`.
+  * **Memory.** Two regimes had to be balanced on this box (8 GB GPU, host RAM often
+    only ~5 GB free):
+      - GPU: batch = 1 tile / step, **no** multi-tile batching; one tile's sparse
+        tensor on the GPU at a time, freed after. `PYTORCH_CUDA_ALLOC_CONF=
+        expandable_segments:True` (set by the runner) avoids fragmentation OOM with
+        the variable tile sizes (support 1.9M→3.7M voxels).
+      - Host RAM: keep only the **compact training arrays** resident per tile
+        (support int32 / feats f32 / labels f32 / keep bool ≈ ~1 GB for all 5 tiles)
+        — NOT the heavy `Sample` (coords_target/masks/…) and NOT the cutoff masks.
+        The full `Sample` + cutoffs are reloaded **only at eval** (every `eval_every`
+        epochs), transiently. An all-resident precompute exhausted host RAM; a fully
+        lazy per-step recompute of `candidate_support` was ~20 s/step. This is the
+        middle path: precompute once, hold compactly, reload `Sample` only to score.
+  * **Tile-invariant features (§2 risk-2):** height channels normalised by a fixed
+    physical scale (`z_scale`, metres), not the per-tile grid height `K` (94→259).
+  * **No negative subsampling (§2 risk-1):** train on the full (border-kept) support;
+    handle imbalance with a per-tile `pos_weight`.
 
 Checkpoint selection / early reporting use the **held-out** IoU, never train.
 """
 from __future__ import annotations
 
+import gc
 from dataclasses import dataclass, field
 
 import numpy as np
@@ -44,16 +52,16 @@ DEFAULT_Z_SCALE = 50.0
 
 
 @dataclass
-class PreppedTile:
-    """Per-tile CPU arrays + the loaded sample (built once, reused every epoch)."""
+class TrainTile:
+    """Compact, resident per-tile arrays for training (no heavy Sample / cutoffs)."""
 
     tile_id: str
-    sample: object
-    support: np.ndarray
-    feats: np.ndarray
-    labels: np.ndarray
-    keep: np.ndarray          # border-keep mask (True = used for loss)
-    cutoffs: dict
+    orig_npz: str          # path to reload the full Sample for eval scoring
+    grid: object
+    support: np.ndarray    # (N,3) int32
+    feats: np.ndarray      # (N,C) float32
+    labels: np.ndarray     # (N,) float32  (1 = candidate in target shell)
+    keep: np.ndarray       # (N,) bool     (border-keep: True = used for loss)
     pos_weight: float
 
 
@@ -61,11 +69,11 @@ class PreppedTile:
 class GeneralizeResult:
     val_tile: str
     train_tiles: list
-    metrics: dict                       # best held-out evaluate() dict (3 cutoffs)
+    metrics: dict
     best_strict_iou: float
     best_threshold: float
     best_epoch: int
-    train_iou_at_best: dict             # {tile_id: strict unobserved IoU} at best ckpt
+    train_iou_at_best: dict
     val_pred_coords: np.ndarray
     history: list = field(default_factory=list)
     n_params: int = 0
@@ -73,30 +81,33 @@ class GeneralizeResult:
     peak_cuda_mb: float = 0.0
 
 
-def _prep_tile(path: str, *, z_scale: float, border_margin: int) -> PreppedTile:
+def _prep_train_tile(path: str, *, z_scale: float, border_margin: int) -> TrainTile:
+    """Build the compact resident arrays for one tile; the heavy Sample is dropped."""
     s = load_sample(path)
-    support = build_candidate_support(s)
-    feats = build_features(s, support, z_scale=z_scale)
-    labels = build_labels(s, support)
+    support = np.ascontiguousarray(build_candidate_support(s), dtype=np.int32)
+    feats = build_features(s, support, z_scale=z_scale).astype(np.float32, copy=False)
+    labels = build_labels(s, support).astype(np.float32, copy=False)
     keep = border_keep_mask(support, s.grid, border_margin)
-    cutoffs = build_cutoff_masks(s.coords_target, s.coords_partial, s.sem_target, s.grid)
     ltr = labels[keep]
     pos_weight = float((len(ltr) - ltr.sum()) / max(ltr.sum(), 1.0))
-    return PreppedTile(
-        tile_id=s.metadata["tile_id"], sample=s, support=support, feats=feats,
-        labels=labels, keep=keep, cutoffs=cutoffs, pos_weight=pos_weight,
-    )
+    tile = TrainTile(tile_id=s.metadata["tile_id"], orig_npz=path, grid=s.grid,
+                     support=support, feats=feats, labels=labels, keep=keep,
+                     pos_weight=pos_weight)
+    del s
+    gc.collect()
+    return tile
 
 
-def _eval_tile(model, pt: PreppedTile, *, border_margin: int, prob_thresholds,
-               logit_thr, amp: bool, device: str, fixed_threshold: float | None = None):
-    """Forward the full support; return (best_pred, best_res, best_prob).
+def _eval_on(model, tile: TrainTile, *, border_margin: int, prob_thresholds, logit_thr,
+             amp: bool, device: str, fixed_threshold: float | None = None):
+    """Forward the full support; score with a freshly-reloaded Sample + cutoffs.
 
-    If ``fixed_threshold`` is given, use only that logit threshold (for scoring train
-    tiles at the val-selected operating point). Otherwise sweep and pick best strict.
+    The Sample (coords_target/masks/…) and cutoff masks are reloaded here, transiently,
+    so they never stay resident during training. Returns (best_pred, best_res, prob).
     """
-    s = pt.sample
-    x = to_sparse_tensor(pt.support, pt.feats, s.grid, device=device)
+    s = load_sample(tile.orig_npz)
+    cutoffs = build_cutoff_masks(s.coords_target, s.coords_partial, s.sem_target, s.grid)
+    x = to_sparse_tensor(tile.support, tile.feats, tile.grid, device=device)
     model.eval()
     with torch.inference_mode(), torch.amp.autocast("cuda", enabled=amp):
         logits = model(x).features.reshape(-1).float().cpu().numpy()
@@ -104,18 +115,21 @@ def _eval_tile(model, pt: PreppedTile, *, border_margin: int, prob_thresholds,
     torch.cuda.empty_cache()
 
     if fixed_threshold is not None:
-        pred = occupancy_logits_to_coords(pt.support, logits, threshold=fixed_threshold)
-        res = evaluate(pred, s, cutoffs=pt.cutoffs, border_margin=border_margin)
-        return pred, res, None
-
-    best = None
-    for p, t in zip(prob_thresholds, logit_thr):
-        pred = occupancy_logits_to_coords(pt.support, logits, threshold=t)
-        res = evaluate(pred, s, cutoffs=pt.cutoffs, border_margin=border_margin)
-        iou = res["unobserved"]["strict"]["iou"]
-        if best is None or iou > best[1]["unobserved"]["strict"]["iou"]:
-            best = (pred, res, p)
-    return best
+        pred = occupancy_logits_to_coords(tile.support, logits, threshold=fixed_threshold)
+        res = evaluate(pred, s, cutoffs=cutoffs, border_margin=border_margin)
+        out = (pred, res, None)
+    else:
+        best = None
+        for p, t in zip(prob_thresholds, logit_thr):
+            pred = occupancy_logits_to_coords(tile.support, logits, threshold=t)
+            res = evaluate(pred, s, cutoffs=cutoffs, border_margin=border_margin)
+            iou = res["unobserved"]["strict"]["iou"]
+            if best is None or iou > best[1]["unobserved"]["strict"]["iou"]:
+                best = (pred, res, p)
+        out = best
+    del s, cutoffs
+    gc.collect()
+    return out
 
 
 def train_multi(
@@ -134,76 +148,69 @@ def train_multi(
     seed: int = 0,
     log=print,
 ) -> GeneralizeResult:
-    """Train on ``train_npz`` tiles (1 tile/step, shuffled each epoch), evaluate on
-    the held-out ``val_npz`` every ``eval_every`` epochs; keep the best-by-held-out
-    checkpoint. Returns the held-out metrics + per-train-tile IoU for gap diagnosis.
-    """
+    """Train on ``train_npz`` (1 tile/step, shuffled each epoch), eval held-out every
+    ``eval_every`` epochs, keep best-by-held-out. Compact resident arrays + eval-time
+    Sample reload (see module docstring)."""
     torch.manual_seed(seed)
     rng = np.random.default_rng(seed)
+    logit_thr = [float(np.log(p / (1.0 - p))) for p in prob_thresholds]
 
-    log(f"[prep]    z_scale={z_scale} (tile-invariant height), border_margin={border_margin}")
-    train = [_prep_tile(p, z_scale=z_scale, border_margin=border_margin) for p in train_npz]
-    for pt in train:
-        n_pos = int(pt.labels[pt.keep].sum())
-        log(f"  train {pt.tile_id}: support {len(pt.support):,} "
-            f"(kept {int(pt.keep.sum()):,}, pos {n_pos:,}, pos_weight {pt.pos_weight:.1f})")
-    val = _prep_tile(val_npz, z_scale=z_scale, border_margin=border_margin)
-    log(f"  HELD-OUT {val.tile_id}: support {len(val.support):,} "
-        f"(pos {int(val.labels.sum()):,})")
+    log(f"[prep]    z_scale={z_scale} (tile-invariant height), border_margin={border_margin}, "
+        f"compact-resident + eval-time Sample reload")
+    train = [_prep_train_tile(p, z_scale=z_scale, border_margin=border_margin) for p in train_npz]
+    for t in train:
+        log(f"  train {t.tile_id}: support {len(t.support):,} (kept {int(t.keep.sum()):,}, "
+            f"pos {int(t.labels[t.keep].sum()):,}, pos_weight {t.pos_weight:.1f})")
+    val = _prep_train_tile(val_npz, z_scale=z_scale, border_margin=border_margin)
+    log(f"  HELD-OUT {val.tile_id}: support {len(val.support):,} (pos {int(val.labels.sum()):,})")
 
     model = OccupancyCompletionUNet(in_channels=train[0].feats.shape[1], base=base).to(device)
     n_params = sum(p.numel() for p in model.parameters())
     opt = torch.optim.Adam(model.parameters(), lr=lr)
     scaler = torch.amp.GradScaler("cuda", enabled=amp)
-    logit_thr = [float(np.log(p / (1.0 - p))) for p in prob_thresholds]
 
     history: list = []
     best_strict = -1.0
-    best_state = None
     best_res: dict = {}
     best_prob = 0.5
     best_epoch = -1
     best_pred = np.zeros((0, 3), dtype=np.int32)
+    best_train_iou: dict = {}
 
-    def run_eval(epoch: int):
-        nonlocal best_strict, best_state, best_res, best_prob, best_epoch, best_pred
-        pred, res, prob = _eval_tile(
-            model, val, border_margin=border_margin, prob_thresholds=prob_thresholds,
-            logit_thr=logit_thr, amp=amp, device=device,
-        )
+    def run_eval(epoch: int, last_loss: float):
+        nonlocal best_strict, best_res, best_prob, best_epoch, best_pred
+        pred, res, prob = _eval_on(model, val, border_margin=border_margin,
+                                   prob_thresholds=prob_thresholds, logit_thr=logit_thr,
+                                   amp=amp, device=device)
         strict = res["unobserved"]["strict"]["iou"]
-        # per-train-tile strict IoU at the val-selected threshold (gap diagnosis)
+        u = {c: round(res["unobserved"][c]["iou"], 4) for c in ("strict", "mid", "tolerant")}
         vt = float(np.log(prob / (1.0 - prob)))
         train_iou = {}
-        for pt in train:
-            _, tr, _ = _eval_tile(
-                model, pt, border_margin=border_margin, prob_thresholds=prob_thresholds,
-                logit_thr=logit_thr, amp=amp, device=device, fixed_threshold=vt,
-            )
-            train_iou[pt.tile_id] = round(tr["unobserved"]["strict"]["iou"], 4)
-        u = {c: round(res["unobserved"][c]["iou"], 4) for c in ("strict", "mid", "tolerant")}
+        for t in train:
+            _, tr, _ = _eval_on(model, t, border_margin=border_margin,
+                                prob_thresholds=prob_thresholds, logit_thr=logit_thr,
+                                amp=amp, device=device, fixed_threshold=vt)
+            train_iou[t.tile_id] = round(tr["unobserved"]["strict"]["iou"], 4)
         history.append({"epoch": epoch, "val_unobs": u, "val_comp_iou": round(res["completion"]["iou"], 4),
                         "best_prob": prob, "train_unobs_strict": train_iou,
-                        "val_pred_voxels": int(pred.shape[0])})
+                        "val_pred_voxels": int(pred.shape[0]), "last_train_loss": round(last_loss, 4)})
         log(f"[ep {epoch:4d}] HELD-OUT {val.tile_id} unobs strict/mid/tol "
             f"{u['strict']}/{u['mid']}/{u['tolerant']} @p={prob}  "
             f"(bar B3=0.165, B1=0.146)  train {train_iou}")
         if strict > best_strict:
             best_strict, best_res, best_prob, best_epoch, best_pred = strict, res, prob, epoch, pred
-            best_state = {k: v.detach().cpu().clone() for k, v in model.state_dict().items()}
             best_train_iou.clear(); best_train_iou.update(train_iou)
 
-    best_train_iou: dict = {}
     for epoch in range(1, epochs + 1):
         model.train()
         order = rng.permutation(len(train))
         last_loss = 0.0
         for idx in order:
-            pt = train[int(idx)]
-            tr = np.where(pt.keep)[0]
-            x = to_sparse_tensor(pt.support[tr], pt.feats[tr], pt.sample.grid, device=device)
-            y = torch.as_tensor(pt.labels[tr], device=device)
-            pw = torch.tensor([pt.pos_weight], device=device)
+            t = train[int(idx)]
+            tr = np.where(t.keep)[0]
+            x = to_sparse_tensor(t.support[tr], t.feats[tr], t.grid, device=device)
+            y = torch.as_tensor(t.labels[tr], device=device)
+            pw = torch.tensor([t.pos_weight], device=device)
             opt.zero_grad(set_to_none=True)
             with torch.amp.autocast("cuda", enabled=amp):
                 out = model(x)
@@ -217,13 +224,11 @@ def train_multi(
             torch.cuda.empty_cache()
 
         if epoch % eval_every == 0 or epoch == epochs:
-            run_eval(epoch)
-            if history:
-                history[-1]["last_train_loss"] = round(last_loss, 4)
+            run_eval(epoch, last_loss)
 
     peak_mb = torch.cuda.max_memory_allocated() / 1e6 if device == "cuda" else 0.0
     return GeneralizeResult(
-        val_tile=val.tile_id, train_tiles=[pt.tile_id for pt in train],
+        val_tile=val.tile_id, train_tiles=[t.tile_id for t in train],
         metrics=best_res, best_strict_iou=float(best_strict), best_threshold=float(best_prob),
         best_epoch=int(best_epoch), train_iou_at_best=dict(best_train_iou),
         val_pred_coords=best_pred, history=history, n_params=int(n_params),
