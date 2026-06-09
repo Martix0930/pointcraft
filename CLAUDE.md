@@ -12,12 +12,8 @@ then instantiate the result as an embodied interactive environment (Minecraft).
 
 ## Milestones
 
-- **M0** Data pairing — LiDAR + LOD2/CityGML/mesh → paired voxel training samples. ← current focus
-- **M1** Deterministic baseline (legacy pipeline, see below).
-- **M2** Learning-based occupancy completion.
-- **M3** Semantic completion (occupancy + semantic heads).
-- **M4** Unobserved facade / volume completion evaluation.
-- **M5** Minecraft / embodied demo.
+M0 data pairing -> M1 deterministic baseline -> M2 occupancy completion ->
+M3 semantic completion -> M4 unobserved completion evaluation -> M5 embodied demo.
 
 ## Repository as shared memory
 
@@ -46,33 +42,39 @@ small task specs, not long chat logs.
 
 ## Rules for Claude Code
 
-1. **Read the active task's `TASK_SPEC.md`, `ACCEPTANCE.md`, `CHECKLIST.md` before coding.**
-2. **Update `SESSION_LOG.md`** in the active task folder at the end of every session
-   (what you did, decisions, current status, next recommended prompt).
-3. **Do not redesign the whole project** or restructure the repo unless explicitly asked.
-4. **Do not implement neural networks during M0.** No torch / spconv / Minkowski
-   work until M2 and only when a task spec calls for it.
-5. **Do not modify unrelated files.** Stay within the scope of the active task;
-   respect each task's "Scope exclusions".
-6. **Log non-trivial decisions** in `docs/06_DECISIONS.md`.
-7. Keep dependencies minimal; heavy libs (torch, spconv, MinkowskiEngine, Open3D,
-   PDAL) are optional and introduced only when their milestone needs them.
+1. Read the active task's `TASK_SPEC.md`, `ACCEPTANCE.md`, `CHECKLIST.md`, and
+   `SESSION_LOG.md` before coding.
+2. Update that task's `SESSION_LOG.md` after each implementation session.
+3. Log non-trivial decisions in `docs/06_DECISIONS.md`.
+4. Stay within the active task scope; do not redesign the repo or touch unrelated
+   files unless explicitly asked.
+5. Keep dependencies minimal and milestone-gated.
 
 ## Test data policy
 
-- `test_data/` stores **tiny, committed fixtures** for tests and smoke runs.
-- Only **minimal synthetic or heavily reduced** data should be committed.
-- **Large raw datasets must not be committed.**
-- Real LiDAR, PLATEAU, CityGML, OBJ, NPZ, checkpoints, and generated outputs must
-  stay outside git or under ignored local folders.
-- Tests should prefer `test_data/` fixtures over ad-hoc local paths.
-- Every new fixture must include a short `README.md` explaining: what it
-  represents, the expected coordinate system, the expected voxel size / bounds,
-  and which tests use it.
+`test_data/` is for tiny committed fixtures only. Large raw datasets, generated
+samples, checkpoints, and real LiDAR/PLATEAU/CityGML/OBJ/NPZ artifacts must stay
+ignored. New fixtures should be minimal, synthetic or heavily reduced, and include
+a short README describing coordinate system, voxel size / bounds, and tests.
 
-## Current status
+## Current status / active task pointer
 
-- Research direction locked (Aerial-to-Embodied Semantic Scene Completion).
-- Repository scaffolding created; legacy pipeline merged into `src/pointcraft/`.
-- `test_data/` tiny fixtures added (voxel-grid + data-pairing).
-- **Next: M0 data pairing.** See `tasks/M0_data_pairing/`.
+This section is a lightweight pointer only. If it conflicts with any
+`tasks/M*/SESSION_LOG.md`, trust the task log.
+
+- **M0 data pairing:** DONE. See `tasks/M0_data_pairing/SESSION_LOG.md`.
+- **M1 deterministic baseline:** DONE. See
+  `tasks/M1_deterministic_baseline/SESSION_LOG.md`.
+- **M2 occupancy completion:** first-step DONE (single-tile overfit). See
+  `tasks/M2_occupancy_completion/SESSION_LOG.md`.
+- **M3 semantic completion:** not started.
+- **M4 unobserved facade / volume evaluation:** not started.
+- **M5 Minecraft / embodied demo:** not started.
+
+## Active task rule
+
+No implementation task is active by default. For research discussion, read the
+relevant docs and task logs before making strategy claims. For coding, the user
+or the task spec must identify the active milestone/task; then read that task's
+`TASK_SPEC.md`, `ACCEPTANCE.md`, `CHECKLIST.md`, and `SESSION_LOG.md` before
+editing.
