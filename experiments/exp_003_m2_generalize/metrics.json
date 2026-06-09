@@ -63,19 +63,6 @@
     "09LD1846": 0.1512,
     "09LD1885": 0.1601
   },
-  "verdict": {
-    "verdict": "A*",
-    "passes_per_cutoff": {
-      "strict": true,
-      "mid": true,
-      "tolerant": false
-    },
-    "all_cutoffs_pass": false,
-    "note": "qualified generalization: held-out strict 0.251 = 1.52x B3 shell, clears full bar on 2/3 cutoffs (tolerant marginal). Clearly ABOVE the deterministic shell -> learned transferable structure, NOT case B / not a generative trigger.",
-    "overfit": "held-out strict peaks 0.251@ep40 then collapses to 0.025@ep200 while train IoU climbs -> overfits the train tiles; early-stop at the peak (more tiles / regularization).",
-    "strict_ratio_to_b3": 1.522,
-    "strict_ratio_to_ceiling": 0.331
-  },
   "metrics": {
     "completion": {
       "iou": 0.34811791842673634,
@@ -298,5 +285,26 @@
       "val_pred_voxels": 51880,
       "last_train_loss": 0.2527
     }
-  ]
+  ],
+  "verdict_DEPRECATED_single_run": {
+    "verdict": "A*",
+    "passes_per_cutoff": {
+      "strict": true,
+      "mid": true,
+      "tolerant": false
+    },
+    "all_cutoffs_pass": false,
+    "note": "qualified generalization: held-out strict 0.251 = 1.52x B3 shell, clears full bar on 2/3 cutoffs (tolerant marginal). Clearly ABOVE the deterministic shell -> learned transferable structure, NOT case B / not a generative trigger.",
+    "overfit": "held-out strict peaks 0.251@ep40 then collapses to 0.025@ep200 while train IoU climbs -> overfits the train tiles; early-stop at the peak (more tiles / regularization).",
+    "strict_ratio_to_b3": 1.522,
+    "strict_ratio_to_ceiling": 0.331
+  },
+  "verdict": {
+    "scope": "per-cutoff, multi-run (5 runs / 3 seeds; see peak_confirm.json). A/A* single-run labels abandoned: they flip on run-to-run noise.",
+    "strict": "ROBUST PASS \u2014 0.234-0.267 across all runs, every run > B3 0.165 by ~0.07-0.10, far exceeding the ~0.015 run-to-run noise. fork-1 'does it generalize across tiles' = YES, and rests on this cutoff.",
+    "mid": "MARGINAL \u2014 clears B3 0.134 in 4/5 runs but by a margin (~0.01) comparable to the ~0.015 noise; not robust.",
+    "tolerant": "BORDERLINE \u2014 straddles B3 0.141 (clears in only 2/5 runs); mostly below.",
+    "non_determinism": "same-seed run-to-run |\u0394|~0.015 on unobserved IoU (spconv GPU atomics). This is ABNORMALLY LARGE for an IoU metric: the held-out peak SOLUTION is unstable (peak epoch swings ep10-50, peak magnitude 0.234-0.267), and this is the SAME instability that drives the peak-then-collapse \u2014 one fragile-region phenomenon, not a mere measurement disclaimer.",
+    "caveat_cross_seed_scope": "seed-1/2 runs are 60 epochs = PEAK REGION ONLY; they do NOT observe the collapse (only the seed-0 150-ep run does). Do not read the 60-ep runs as full-trajectory reproduction."
+  }
 }

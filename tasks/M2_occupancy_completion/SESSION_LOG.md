@@ -1,10 +1,13 @@
 # M2 — Occupancy Completion — SESSION LOG
 
-## Current status: **fork-1 generalization DONE (A\*)** — held-out tile beats the deterministic shell ✅
+## Current status: **fork-1 generalization DONE** — held-out beats the deterministic shell on STRICT (robust) ✅
 
-> First-step (single-tile overfit, below) DONE; fork-1 multi-tile generalization closed at
-> verdict **A\*** (held-out 09LD2814 strict unobserved IoU 0.251 = 1.52× B3). See the
-> 2026-06-08 G1/G2/G3 entries at the bottom. Next gate: M3 semantics vs scale-up (open).
+> First-step (single-tile overfit, below) DONE; fork-1 multi-tile generalization closed.
+> **Conclusive (per-cutoff, 5 runs / 3 seeds — A/A\* labels abandoned):** held-out
+> 09LD2814 **robustly clears B3 on strict** (0.234–0.267 vs 0.165, all runs), **marginal
+> on mid**, **borderline on tolerant**. fork-1 "yes" rests on strict. Run-to-run noise
+> ≈0.015 (unstable peak; same source as the collapse). See the 2026-06-08 G1/G2/G3/G3+
+> entries at the bottom. Next gate: M3 semantics vs scale-up-to-stabilize (open).
 
 Phases 0–F complete. A small sparse-conv U-Net (`OccupancyCompletionUNet`, 79k
 params) **overfits `09LD1874`** and clearly clears the M2 gate, scored by the shared
@@ -377,3 +380,53 @@ bounded by tallest training structure; check first if a future B-failure is high
 dual-head** (new high-information question); alternative = scale-up first (8–10 tiles +
 regularize toward the ceiling) only if a Harada-facing timeline values a prettier
 generalization IoU over the semantic dimension. G3 (this record) closes fork-1 either way.
+
+### 2026-06-08 — M2 fork-1 G3+: peak-confirmation, non-determinism characterized, A/A\* dropped
+
+Triggered by the dense-eval (every-10) re-run disagreeing with the every-20 run at the
+ep40 peak (tolerant 0.143 vs 0.132, ~0.011). Two confounds had been introduced together
+(eval cadence + the int32/compact-array rewrite), so "GPU non-determinism" was unproven.
+Ran the controlled experiment first.
+
+**Infra fixes en route (all real, keep):** (a) host-RAM `MemoryError` — the
+precompute-all-resident design exhausted host RAM (only ~5–6 GB free); rewrote
+`train_multi` to **compact resident arrays (support int32 / feats f32) + eval-time Sample
+reload**, fast and low-resident. (b) CUDA fragmentation OOM — added
+`PYTORCH_ALLOC_CONF=expandable_segments:True`. (c) A fully-lazy per-step recompute variant
+was ~20 s/step → rejected. (d) User's SD WebUI (PID 33024) held ~2 GB GPU; closed at user
+request to free the card.
+
+**Deterministic double-run (the decisive test):** two **identical-config, same-seed(0)**
+runs differ by **|Δ| max ≈ 0.014–0.015** on strict/mid/tol across eval points → the
+pipeline is **non-deterministic at ~0.015** (spconv GPU atomics). The ~0.011 old↔new gap
+is **within** this band → **not a dtype shift**. dtype also excluded mechanistically:
+`to_sparse_tensor` casts coords to int32 regardless, so int64→int32 feeds identical GPU
+input. ⇒ non-determinism attribution is now earned and recorded.
+
+**Non-determinism is a finding, not a disclaimer:** 0.015 is abnormally large for an IoU
+metric; the held-out **peak solution is unstable** (peak epoch swings ep10→ep50, peak
+magnitude 0.234→0.267 across seeds) and this is the **same instability** as the
+peak-then-collapse — one fragile-region phenomenon.
+
+**Conclusive verdict (per-cutoff, 5 runs / 3 seeds; `peak_confirm.json`; A/A\* abandoned):**
+
+| cutoff | B3 | held-out range | clears | verdict |
+|---|---|---|---|---|
+| strict | 0.165 | 0.234–0.267 | 5/5 (margin ~0.07–0.10 ≫ noise) | **ROBUST PASS** |
+| mid | 0.134 | 0.127–0.150 | 4/5 (margin ≈ noise) | MARGINAL |
+| tolerant | 0.141 | 0.119–0.144 | 2/5 | BORDERLINE (mostly below) |
+
+**fork-1 = YES, resting solely on STRICT.** Single-run A vs A\* flipped on noise (det_a tol
+0.139 → A\*, det_b tol 0.144 → A, same config) — hence the label is dropped.
+
+**Cross-seed scope (honest limit):** seed-1/2 runs are **60 ep = peak region only**; they
+do **not** observe the collapse (only the seed-0 150-ep run does). Not full-trajectory
+reproduction.
+
+Records updated: `metrics.json` verdict reframed (old A\* demoted to
+`verdict_DEPRECATED_single_run`), `peak_confirm.json` added (5-run summary + same-seed
+spread), README canonical-verdict section. Code: `train/generalize.py` (compact-resident
+rewrite), `scripts/run_m2_generalize.py` (`expandable_segments`). **Branch unchanged:**
+strict robustly above shell → generative does NOT fire; bottleneck is now **peak
+instability / 4-tile overfitting** → scale-up-to-stabilize (more tiles + regularization)
+is the natural lever if pursued; else M3 semantics. Still the venue/advisor's call.

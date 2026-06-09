@@ -1,0 +1,76 @@
+{
+  "bar_B3": {
+    "strict": 0.165,
+    "mid": 0.134,
+    "tolerant": 0.141
+  },
+  "runs": [
+    {
+      "run": "det_a (seed0,50ep)",
+      "seed": 0,
+      "epochs": 50,
+      "best_epoch": 50,
+      "strict": 0.2616,
+      "mid": 0.1442,
+      "tol": 0.1385
+    },
+    {
+      "run": "det_b (seed0,50ep)",
+      "seed": 0,
+      "epochs": 50,
+      "best_epoch": 30,
+      "strict": 0.2582,
+      "mid": 0.1502,
+      "tol": 0.1441
+    },
+    {
+      "run": "seed1 (60ep)",
+      "seed": 1,
+      "epochs": 60,
+      "best_epoch": 10,
+      "strict": 0.2345,
+      "mid": 0.1266,
+      "tol": 0.1189
+    },
+    {
+      "run": "seed2 (60ep)",
+      "seed": 2,
+      "epochs": 60,
+      "best_epoch": 30,
+      "strict": 0.2519,
+      "mid": 0.142,
+      "tol": 0.135
+    },
+    {
+      "run": "seed0 (150ep,collapse)",
+      "seed": 0,
+      "epochs": 150,
+      "best_epoch": 40,
+      "strict": 0.2673,
+      "mid": 0.1494,
+      "tol": 0.1429
+    }
+  ],
+  "strict": {
+    "min": 0.2345,
+    "max": 0.2673,
+    "all_clear_B3": true
+  },
+  "mid": {
+    "min": 0.1266,
+    "max": 0.1502,
+    "n_clear": 4,
+    "n": 5
+  },
+  "tol": {
+    "min": 0.1189,
+    "max": 0.1441,
+    "n_clear": 2,
+    "n": 5
+  },
+  "same_seed0_run_to_run_maxabs": {
+    "strict": 0.0144,
+    "mid": 0.0138,
+    "tolerant": 0.0148
+  }
+}
