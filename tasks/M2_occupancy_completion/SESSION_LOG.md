@@ -430,3 +430,41 @@ rewrite), `scripts/run_m2_generalize.py` (`expandable_segments`). **Branch uncha
 strict robustly above shell → generative does NOT fire; bottleneck is now **peak
 instability / 4-tile overfitting** → scale-up-to-stabilize (more tiles + regularization)
 is the natural lever if pursued; else M3 semantics. Still the venue/advisor's call.
+
+### 2026-06-10 — M2 fork-1 follow-up: LiDAR class-2 ground QA sweep (diagnostic only)
+
+`scripts/diagnose_ground_coverage.py` (committed; CSV `outputs/g1/ground_class2_sweep.csv`
+git-ignored). Read-only sweep of ASPRS classification across all 60 LAS tiles.
+
+**Free authoritative ground, no semantic shortcut.** Class-2 (GROUND) present in **60/60**
+tiles, 12.4–51.1% of points (mean 22.4%). Only classes **1/2/3** appear anywhere → the
+LiDAR carries authoritative *terrain* ground for free (no DEM download — the gap the data
+contract flagged), but **no building/semantic labels** (no class 6/9/5). M3 semantics gets
+**zero shortcut**; buildings stay CityGML-sourced.
+
+**Coverage is the catch.** Ground XY coverage of the *sensed footprint* (1 m cells,
+ground-return cells / any-return cells): mean **60.2%**, range **37.7–94.2%** → ~40% of the
+footprint has no ground return. Structured **under-roof occlusion**, not random.
+
+**Cross-validation (honest, weak-moderate — NOT a tight triangulation).** The holes track
+**building footprint fraction**, not raw surface density: Spearman(cov, footprint_ratio)
+≈ **−0.21** (60 tiles) / **−0.29** (covered 39); lowest-coverage decile mean footprint_ratio
+**0.33 vs 0.18** highest. By contrast surf_per_ha ≈ 0, non_flat ≈ +0.13, height_std −0.29.
+So ground-occlusion holes share **one** mechanism (plan-area under roofs) with the
+recall-ceiling / coverage axis that makes dense tiles hard — directional corroboration
+**through the footprint axis specifically**, not via surface-count or articulation. Caveat:
+held-out 2814 is high-footprint with a low recall ceiling (0.758) but only **average** ground
+coverage (60.5%), so it is *not* a clean triple-low exemplar — the three signals agree in
+direction, loosely, not tile-by-tile.
+
+**Design decision (recorded, NOT implemented): sparse anchors, not interpolation.** Use
+class-2 as **sparse ground anchors + explicit unknown mask** — do **NOT** TIN/IDW-interpolate
+a continuous DEM. Interpolation would fabricate ground elevations under buildings (exactly
+the occluded region the model must reason about), violating the observed/unobserved honesty
+(D4/D7). Missing ground stays honestly missing behind the unknown mask.
+
+**Two-step plan + guardrails.** (1) *Now* = QA layer only: validate the existing CityGML
+building-base ground / vertical alignment; **not in the model.** (2) *Scale-up* = wire class-2
+as an explicit ground feature under a **new `dataset_version`**. Does **NOT** touch D10
+(`z_scale`/`above_ground`); any change there opens its own record and is not compared with
+exp_003.
