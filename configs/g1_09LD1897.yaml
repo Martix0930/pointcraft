@@ -1,0 +1,24 @@
+# M2 fork-1 / exp_004 per-tile data config. Auto-generated.
+# Paths resolve relative to this config folder. CLI --out sets the .npz path.
+# All 9 LOD2 GML grids listed; run_m0 keeps surfaces whose ring centroid lands
+# in this tile grid XY extent (centroid-in-footprint).
+
+name: 09LD1897
+crs: "EPSG:6677"
+cell_size: 1.0
+
+las:
+  - "../data/raw/lidar/09LD1897.las"
+
+citygml_tiles:
+  - "../data/raw/citygml/udx/bldg/53394600_bldg_6697_2_op.gml"
+  - "../data/raw/citygml/udx/bldg/53394601_bldg_6697_2_op.gml"
+  - "../data/raw/citygml/udx/bldg/53394602_bldg_6697_2_op.gml"
+  - "../data/raw/citygml/udx/bldg/53394610_bldg_6697_2_op.gml"
+  - "../data/raw/citygml/udx/bldg/53394611_bldg_6697_2_op.gml"
+  - "../data/raw/citygml/udx/bldg/53394612_bldg_6697_2_op.gml"
+  - "../data/raw/citygml/udx/bldg/53394620_bldg_6697_2_op.gml"
+  - "../data/raw/citygml/udx/bldg/53394621_bldg_6697_2_op.gml"
+  - "../data/raw/citygml/udx/bldg/53394622_bldg_6697_2_op.gml"
+
+output_dir: "outputs/m0/g1"

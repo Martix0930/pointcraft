@@ -1,6 +1,18 @@
 # M2 — Occupancy Completion — SESSION LOG
 
-## Current status: **fork-1 generalization DONE** — held-out beats the deterministic shell on STRICT (robust) ✅
+## Current status: **exp_004 scale-up DONE — scale-up hypothesis FALSIFIED** ⛔→ next: evaluate generative decoder
+
+> The fork-1 generalization claim stands. But **exp_004 (scale-up to stabilize the peak)
+> did NOT stabilize it.** Across 10 train tiles + a wd ladder + 3 seeds, the peak-then-
+> collapse + ≈0.06 jitter **reproduces** — the "more data/regularization → stable optimum"
+> premise is **unsupported**, and the instability is **intrinsic to the discriminative +
+> fixed-candidate-support framework**, not parameter-solvable. The only thing scale-up
+> improved is the **cross-seed reproducibility of the early-stop ceiling** (peak spread
+> 0.011). **Strong-sense stability was not established and the evidence says it cannot be,
+> in this framework.** Next step: evaluate a generative decoder (see the 2026-06-13 entry
+> and `docs/06_DECISIONS.md`). Earlier fork-1 status retained below for provenance.
+
+## fork-1 generalization (retained) — held-out beats the deterministic shell on STRICT (robust) ✅
 
 > First-step (single-tile overfit, below) DONE; fork-1 multi-tile generalization closed.
 > **Conclusive (per-cutoff, 5 runs / 3 seeds — A/A\* labels abandoned):** held-out
@@ -468,3 +480,86 @@ building-base ground / vertical alignment; **not in the model.** (2) *Scale-up* 
 as an explicit ground feature under a **new `dataset_version`**. Does **NOT** touch D10
 (`z_scale`/`above_ground`); any change there opens its own record and is not compared with
 exp_003.
+
+### 2026-06-13 — exp_004 M2 scale-up: scale-up hypothesis FALSIFIED; peak instability is intrinsic
+
+`experiments/exp_004_m2_scaleup/`. Objective (from the exec spec) was **stability, not IoU**:
+make fork-1's fragile early-stop peak stable by moving exactly two coupled knobs —
+**train-tile count (4→10)** and **regularization (weight-decay)** — everything else frozen
+(held-out 09LD2814, eval口径 m=5/3-cutoff, D10/`z_scale=50`, architecture).
+
+**Tile selection — four-axis pick, K/support MEASURED not guessed.** Combined candidate table
+(`outputs/g1/combined_candidates.csv`, `scripts/build_combined_candidates.py`) merged
+density/complexity (`tile_scan.csv`) with ground coverage (`ground_class2_sweep.csv`) over the
+39 coverage_ok tiles. Locked **10 train tiles** spanning a difficulty gradient (surf/ha
+108→944, held-out 2814 at 1071 stays hardest), ground-coverage ≥ 50%, Chebyshev ≥ 2 from 2814.
+Critically, `height_std` proved a **bad proxy** for memory: `scripts/preflight_support.py`
+measured K/support in-memory (no train .npz) and showed the dense-AND-tall-AND-articulated
+tiles (1864 5.9M, 1874/1876 ~4.2M) **exceed** the proven 1885 HWM (3.77M @ 3385 MB), while the
+two most-articulated affordable tiles (2818 nfr=0.317, 1843 nfr=0.308) fit at 0.29×/0.40×.
+**Design limitation recorded before training:** the train set has **no dense×articulated**
+sample (that corner busts memory), so 2814's density×articulation *interaction* generalization
+is **not verifiable** here — a failure on articulated-dense regions would be expected and
+uninformative, not evidence against the model.
+
+**Infra (real debt paid).** First ladder chained 3 wd runs in one driver; wd=1e-3 died on a
+**host-RAM** numpy MemoryError mid-eval, then wd=1e-2 inherited a **corrupted CUDA context**
+(cascade). Fixed: (1) isolated runs + a **GPU-clean gate** between them
+(`run_stageA_wd_ladder.sh` / `run_stageB_seeds.sh`); (2) `--train-eval-every-steps 200` —
+the per-tile train_iou diagnostic (10 full-Sample reloads/eval, the dominant new host-RAM
+churn) gated to a coarser cadence; the held-out `val_unobs` curve stays every 50 tile-steps,
+untouched. Also added `--eval-every-steps` (tile-step x-axis, cross-K-comparable) and
+`--weight-decay` to `train/generalize.py` + the runner; exp_003 epoch path preserved.
+
+**Stage A (wd ∈ {1e-4,1e-3,1e-2}, seed 0, full precision, tile-steps).** All three still
+**peak-then-collapse with large jitter — none is flat** (`stageA_curves.png`). The decisive
+finding: **weight-decay flattens the mean DRIFT but not the JITTER — post-peak std ≈ 0.06 is
+identical across two orders of wd magnitude.** wd=1e-3 best stops the *mean* collapse
+(back-half drift −0.008, plateaus) and was carried to Stage B — not because it stabilizes
+(it does not) but as the cleanest reg at which to quantify the residual instability.
+
+**Stage B (3 seeds @ wd=1e-3) — the result.** `stageB_summary.json`, `stageB_curves.png`.
+
+| seed | peak strict | @step | post-peak std | end |
+|---|---|---|---|---|
+| 0 | 0.294 | 250 | 0.065 | 0.173 |
+| 1 | 0.305 | 200 | 0.062 | 0.186 |
+| 2 | 0.301 | 400 | 0.062 | 0.038 |
+
+- **cross-seed peak spread = 0.011** (< fork-1's ~0.03; all 3 peaks > B3 0.165).
+- **per-seed post-peak std = 0.062–0.065** (reproduces Stage A's ≈0.06, every seed).
+
+**Main conclusion — weighted correctly, NOT a symmetric SPLIT:**
+> **The scale-up hypothesis is FALSIFIED.** 10 tiles + a 2-order wd sweep + 3 seeds did **not**
+> stabilize the peak: the peak-then-collapse + ≈0.06 jitter **reproduces across seeds and
+> across wd**, so the collapse/jitter is **intrinsic to the discriminative + fixed-candidate-
+> support framework**, **not** a data-diversity deficit and **not weight-decay-solvable**. The
+> **only** improvement scale-up delivered is the **cross-seed reproducibility of the early-stop
+> ceiling** — and the honest reading of **spread 0.011 is "the ceiling is reproducible," NOT
+> "generalization is robust/stable."** Taking the max over a ~0.06-amplitude oscillating band
+> clusters near that band's ceiling regardless; peak-spread agreement is necessary, not
+> sufficient, for stability. **Strong-sense stability (hold the peak / no collapse) was NOT
+> established, and the cross-seed × cross-wd reproduction of the instability is positive
+> evidence that it cannot be established in this framework.**
+
+**Core output of this round (do NOT bury it in the SPLIT narrative): a NEW, independent line
+of evidence for evaluating a generative decoder.** The peak instability **reproduces across 3
+seeds and across 2 orders of wd** → it is a **framework-intrinsic** property, an authorization
+signal **independent of** the 0.758 recall ceiling. The decoder question is now gated on **two
+independent signals** — coverage cap (recall ceiling 0.758) **and** framework-intrinsic peak
+instability — **not** on field/trend cosmetics. See `docs/06_DECISIONS.md` (2026-06-13).
+
+**Methodological note (the most transferable lesson on this line).** Stage A's **single-seed**
+ugly curve induced **both** the executor (pre-committed "evidence → Outcome 2, expect spread
+≳0.03") **and** the research lead to **pre-judge Outcome 2**. Stage B's **multi-seed** data
+**refuted that specific prediction** (spread came in 0.011, not ≳0.03) and, more importantly,
+**decoupled two things the single-seed view had fused**: *(i) is the ceiling reproducible?* →
+yes, and *(ii) is the instability solved?* → no. The executor's pre-commit was wrong on (i)
+and was **not** spun to fit; recorded as a correction in the exp README. **Lesson: do not draw
+structural conclusions from a single-seed noisy curve — run seeds before deciding which
+phenomenon you are even looking at.** A jittery single curve cannot tell "unstable optimum"
+from "reproducible-ceiling-with-transient-peak"; only seeds separate them.
+
+**Deferrals unchanged / scope honored:** D10 untouched; no class-2 ground integration; no
+semantics; generative branch **evaluated next, not armed here**. We did **not** chase the curve
+with epochs/lr/dropout (§10) — the falsification is the result, not a tuning failure.

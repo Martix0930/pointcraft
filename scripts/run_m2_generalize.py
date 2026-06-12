@@ -146,6 +146,13 @@ def main(argv=None) -> int:
     ap.add_argument("--lr", type=float, default=1e-3)
     ap.add_argument("--base", type=int, default=8)
     ap.add_argument("--eval-every", type=int, default=20)
+    ap.add_argument("--eval-every-steps", type=int, default=None,
+                    help="exp_004: eval every N tile-steps (overrides --eval-every; x-axis in tile-steps)")
+    ap.add_argument("--train-eval-every-steps", type=int, default=None,
+                    help="exp_004: compute per-tile train_iou diagnostic only every N tile-steps "
+                         "(host-RAM discipline; held-out curve unaffected)")
+    ap.add_argument("--weight-decay", type=float, default=0.0,
+                    help="exp_004 Stage A reg ladder: Adam L2 weight decay")
     ap.add_argument("--border-margin", type=int, default=5)
     ap.add_argument("--z-scale", type=float, default=50.0)
     ap.add_argument("--seed", type=int, default=0)
@@ -168,7 +175,10 @@ def main(argv=None) -> int:
 
     res = train_multi(
         args.train, args.val, epochs=args.epochs, lr=args.lr, base=args.base,
-        eval_every=args.eval_every, border_margin=args.border_margin, z_scale=args.z_scale,
+        eval_every=args.eval_every, eval_every_steps=args.eval_every_steps,
+        train_eval_every_steps=args.train_eval_every_steps,
+        weight_decay=args.weight_decay,
+        border_margin=args.border_margin, z_scale=args.z_scale,
         seed=args.seed, amp=not args.no_amp,
     )
 
@@ -189,7 +199,10 @@ def main(argv=None) -> int:
         "model": "OccupancyCompletionUNet", "params": res.n_params,
         "config": {"epochs": args.epochs, "lr": args.lr, "base": args.base,
                    "border_margin": args.border_margin, "z_scale": args.z_scale,
-                   "amp": not args.no_amp, "seed": args.seed},
+                   "amp": not args.no_amp, "seed": args.seed,
+                   "weight_decay": args.weight_decay,
+                   "eval_every_steps": args.eval_every_steps,
+                   "train_eval_every_steps": args.train_eval_every_steps},
         "code_commit": _git_commit(), "peak_cuda_mb": res.peak_cuda_mb,
         "recall_ceiling": ceiling, "bar": bar,
         "held_out_unobserved_iou": {c: round(val_unobs[c], 4) for c in val_unobs},

@@ -1,0 +1,796 @@
+{
+  "val_tile": "09LD2814",
+  "train_tiles": [
+    "09LD1878",
+    "09LD1845",
+    "09LD1843",
+    "09LD1867",
+    "09LD2818",
+    "09LD1846",
+    "09LD1885",
+    "09LD1886",
+    "09LD1897",
+    "09LD2807"
+  ],
+  "model": "OccupancyCompletionUNet",
+  "params": 79153,
+  "config": {
+    "epochs": 200,
+    "lr": 0.001,
+    "base": 8,
+    "border_margin": 5,
+    "z_scale": 50.0,
+    "amp": false,
+    "seed": 0,
+    "weight_decay": 0.01,
+    "eval_every_steps": 50,
+    "train_eval_every_steps": 200
+  },
+  "code_commit": "05cdf6e",
+  "peak_cuda_mb": 4062.9,
+  "recall_ceiling": {
+    "support_size": 2664572,
+    "overall": 0.8815,
+    "unobserved": {
+      "strict": 0.7576,
+      "mid": 0.6834,
+      "tolerant": 0.7869
+    },
+    "support_as_pred_iou": {
+      "strict": 0.146,
+      "mid": 0.0906,
+      "tolerant": 0.0869
+    }
+  },
+  "bar": {
+    "B1": {
+      "strict": 0.146,
+      "mid": 0.0906,
+      "tolerant": 0.0869
+    },
+    "B3": {
+      "strict": 0.165,
+      "mid": 0.1343,
+      "tolerant": 0.1409
+    },
+    "bar": {
+      "strict": 0.165,
+      "mid": 0.1343,
+      "tolerant": 0.1409
+    }
+  },
+  "held_out_unobserved_iou": {
+    "strict": 0.3162,
+    "mid": 0.1967,
+    "tolerant": 0.1959
+  },
+  "best_epoch": 50,
+  "best_prob_threshold": 0.3,
+  "train_iou_at_best": {},
+  "verdict": {
+    "verdict": "A",
+    "passes_per_cutoff": {
+      "strict": true,
+      "mid": true,
+      "tolerant": true
+    },
+    "all_cutoffs_pass": true,
+    "note": "real generalization: held-out > max(B1,B3) on all 3 cutoffs.",
+    "overfit": null,
+    "strict_ratio_to_b3": 1.917,
+    "strict_ratio_to_ceiling": 0.417
+  },
+  "metrics": {
+    "completion": {
+      "iou": 0.4261240660454796,
+      "precision": 0.5263111306244423,
+      "recall": 0.6912199174755325,
+      "tp": 445935,
+      "fp": 401349,
+      "fn": 199207
+    },
+    "per_class_recall": {
+      "1": 0.734501119494252,
+      "3": 0.6212590639419908,
+      "4": 0.6993390861383747
+    },
+    "unobserved": {
+      "strict": {
+        "iou": 0.31622952182952185,
+        "precision": 0.4707345997964878,
+        "recall": 0.49069619795806707,
+        "tp": 190133,
+        "fp": 213774,
+        "fn": 197343
+      },
+      "mid": {
+        "iou": 0.19669151890344017,
+        "precision": 0.2981328325327747,
+        "recall": 0.366314625960111,
+        "tp": 90805,
+        "fp": 213774,
+        "fn": 157083
+      },
+      "tolerant": {
+        "iou": 0.19589002158328836,
+        "precision": 0.275575662074925,
+        "recall": 0.40385474915823244,
+        "tp": 81321,
+        "fp": 213774,
+        "fn": 120041
+      }
+    }
+  },
+  "history": [
+    {
+      "epoch": 5,
+      "tile_step": 50,
+      "val_unobs": {
+        "strict": 0.2442,
+        "mid": 0.1271,
+        "tolerant": 0.1192
+      },
+      "val_comp_iou": 0.3482,
+      "best_prob": 0.4,
+      "train_unobs_strict": null,
+      "val_pred_voxels": 1237730,
+      "last_train_loss": 1.0524
+    },
+    {
+      "epoch": 10,
+      "tile_step": 100,
+      "val_unobs": {
+        "strict": 0.2571,
+        "mid": 0.1377,
+        "tolerant": 0.1316
+      },
+      "val_comp_iou": 0.3577,
+      "best_prob": 0.3,
+      "train_unobs_strict": null,
+      "val_pred_voxels": 1224698,
+      "last_train_loss": 0.7673
+    },
+    {
+      "epoch": 15,
+      "tile_step": 150,
+      "val_unobs": {
+        "strict": 0.2693,
+        "mid": 0.149,
+        "tolerant": 0.1425
+      },
+      "val_comp_iou": 0.3729,
+      "best_prob": 0.3,
+      "train_unobs_strict": null,
+      "val_pred_voxels": 1133692,
+      "last_train_loss": 0.7231
+    },
+    {
+      "epoch": 20,
+      "tile_step": 200,
+      "val_unobs": {
+        "strict": 0.2848,
+        "mid": 0.1573,
+        "tolerant": 0.1512
+      },
+      "val_comp_iou": 0.3981,
+      "best_prob": 0.4,
+      "train_unobs_strict": {
+        "09LD1878": 0.0628,
+        "09LD1845": 0.0549,
+        "09LD1843": 0.2263,
+        "09LD1867": 0.1104,
+        "09LD2818": 0.2529,
+        "09LD1846": 0.1825,
+        "09LD1885": 0.1753,
+        "09LD1886": 0.3247,
+        "09LD1897": 0.2603,
+        "09LD2807": 0.2514
+      },
+      "val_pred_voxels": 909415,
+      "last_train_loss": 0.7005
+    },
+    {
+      "epoch": 25,
+      "tile_step": 250,
+      "val_unobs": {
+        "strict": 0.2811,
+        "mid": 0.1647,
+        "tolerant": 0.1651
+      },
+      "val_comp_iou": 0.4038,
+      "best_prob": 0.3,
+      "train_unobs_strict": null,
+      "val_pred_voxels": 714179,
+      "last_train_loss": 0.8322
+    },
+    {
+      "epoch": 30,
+      "tile_step": 300,
+      "val_unobs": {
+        "strict": 0.2833,
+        "mid": 0.1839,
+        "tolerant": 0.1835
+      },
+      "val_comp_iou": 0.3774,
+      "best_prob": 0.5,
+      "train_unobs_strict": null,
+      "val_pred_voxels": 978097,
+      "last_train_loss": 0.6476
+    },
+    {
+      "epoch": 35,
+      "tile_step": 350,
+      "val_unobs": {
+        "strict": 0.2821,
+        "mid": 0.1781,
+        "tolerant": 0.1789
+      },
+      "val_comp_iou": 0.4042,
+      "best_prob": 0.3,
+      "train_unobs_strict": null,
+      "val_pred_voxels": 710764,
+      "last_train_loss": 0.7478
+    },
+    {
+      "epoch": 40,
+      "tile_step": 400,
+      "val_unobs": {
+        "strict": 0.3092,
+        "mid": 0.2003,
+        "tolerant": 0.1992
+      },
+      "val_comp_iou": 0.4164,
+      "best_prob": 0.3,
+      "train_unobs_strict": {
+        "09LD1878": 0.0918,
+        "09LD1845": 0.0552,
+        "09LD1843": 0.234,
+        "09LD1867": 0.1065,
+        "09LD2818": 0.2611,
+        "09LD1846": 0.2059,
+        "09LD1885": 0.1912,
+        "09LD1886": 0.3331,
+        "09LD1897": 0.2927,
+        "09LD2807": 0.2869
+      },
+      "val_pred_voxels": 851881,
+      "last_train_loss": 0.6228
+    },
+    {
+      "epoch": 45,
+      "tile_step": 450,
+      "val_unobs": {
+        "strict": 0.2799,
+        "mid": 0.1614,
+        "tolerant": 0.1566
+      },
+      "val_comp_iou": 0.3911,
+      "best_prob": 0.3,
+      "train_unobs_strict": null,
+      "val_pred_voxels": 975841,
+      "last_train_loss": 0.8217
+    },
+    {
+      "epoch": 50,
+      "tile_step": 500,
+      "val_unobs": {
+        "strict": 0.3162,
+        "mid": 0.1967,
+        "tolerant": 0.1959
+      },
+      "val_comp_iou": 0.4261,
+      "best_prob": 0.3,
+      "train_unobs_strict": null,
+      "val_pred_voxels": 890231,
+      "last_train_loss": 0.5995
+    },
+    {
+      "epoch": 55,
+      "tile_step": 550,
+      "val_unobs": {
+        "strict": 0.2609,
+        "mid": 0.2049,
+        "tolerant": 0.217
+      },
+      "val_comp_iou": 0.3359,
+      "best_prob": 0.3,
+      "train_unobs_strict": null,
+      "val_pred_voxels": 477188,
+      "last_train_loss": 0.6752
+    },
+    {
+      "epoch": 60,
+      "tile_step": 600,
+      "val_unobs": {
+        "strict": 0.242,
+        "mid": 0.1659,
+        "tolerant": 0.1652
+      },
+      "val_comp_iou": 0.3512,
+      "best_prob": 0.3,
+      "train_unobs_strict": {
+        "09LD1878": 0.1686,
+        "09LD1845": 0.0794,
+        "09LD1843": 0.3088,
+        "09LD1867": 0.1359,
+        "09LD2818": 0.3308,
+        "09LD1846": 0.2597,
+        "09LD1885": 0.2046,
+        "09LD1886": 0.368,
+        "09LD1897": 0.3539,
+        "09LD2807": 0.3298
+      },
+      "val_pred_voxels": 554007,
+      "last_train_loss": 0.6414
+    },
+    {
+      "epoch": 65,
+      "tile_step": 650,
+      "val_unobs": {
+        "strict": 0.2835,
+        "mid": 0.1938,
+        "tolerant": 0.1958
+      },
+      "val_comp_iou": 0.389,
+      "best_prob": 0.3,
+      "train_unobs_strict": null,
+      "val_pred_voxels": 778566,
+      "last_train_loss": 0.4389
+    },
+    {
+      "epoch": 70,
+      "tile_step": 700,
+      "val_unobs": {
+        "strict": 0.2009,
+        "mid": 0.1223,
+        "tolerant": 0.1284
+      },
+      "val_comp_iou": 0.2935,
+      "best_prob": 0.3,
+      "train_unobs_strict": null,
+      "val_pred_voxels": 445687,
+      "last_train_loss": 0.6474
+    },
+    {
+      "epoch": 75,
+      "tile_step": 750,
+      "val_unobs": {
+        "strict": 0.2242,
+        "mid": 0.1947,
+        "tolerant": 0.2084
+      },
+      "val_comp_iou": 0.2885,
+      "best_prob": 0.3,
+      "train_unobs_strict": null,
+      "val_pred_voxels": 391586,
+      "last_train_loss": 0.4811
+    },
+    {
+      "epoch": 80,
+      "tile_step": 800,
+      "val_unobs": {
+        "strict": 0.1704,
+        "mid": 0.1657,
+        "tolerant": 0.1796
+      },
+      "val_comp_iou": 0.2113,
+      "best_prob": 0.3,
+      "train_unobs_strict": {
+        "09LD1878": 0.1763,
+        "09LD1845": 0.125,
+        "09LD1843": 0.3054,
+        "09LD1867": 0.1964,
+        "09LD2818": 0.2347,
+        "09LD1846": 0.2798,
+        "09LD1885": 0.2024,
+        "09LD1886": 0.3478,
+        "09LD1897": 0.3568,
+        "09LD2807": 0.3296
+      },
+      "val_pred_voxels": 296697,
+      "last_train_loss": 0.4246
+    },
+    {
+      "epoch": 85,
+      "tile_step": 850,
+      "val_unobs": {
+        "strict": 0.1308,
+        "mid": 0.1241,
+        "tolerant": 0.137
+      },
+      "val_comp_iou": 0.1824,
+      "best_prob": 0.3,
+      "train_unobs_strict": null,
+      "val_pred_voxels": 218861,
+      "last_train_loss": 0.4376
+    },
+    {
+      "epoch": 90,
+      "tile_step": 900,
+      "val_unobs": {
+        "strict": 0.2374,
+        "mid": 0.1684,
+        "tolerant": 0.1668
+      },
+      "val_comp_iou": 0.3464,
+      "best_prob": 0.3,
+      "train_unobs_strict": null,
+      "val_pred_voxels": 581440,
+      "last_train_loss": 0.6313
+    },
+    {
+      "epoch": 95,
+      "tile_step": 950,
+      "val_unobs": {
+        "strict": 0.1819,
+        "mid": 0.136,
+        "tolerant": 0.1426
+      },
+      "val_comp_iou": 0.2525,
+      "best_prob": 0.3,
+      "train_unobs_strict": null,
+      "val_pred_voxels": 380559,
+      "last_train_loss": 0.3958
+    },
+    {
+      "epoch": 100,
+      "tile_step": 1000,
+      "val_unobs": {
+        "strict": 0.1453,
+        "mid": 0.1326,
+        "tolerant": 0.1423
+      },
+      "val_comp_iou": 0.1946,
+      "best_prob": 0.3,
+      "train_unobs_strict": {
+        "09LD1878": 0.1787,
+        "09LD1845": 0.0968,
+        "09LD1843": 0.2499,
+        "09LD1867": 0.1522,
+        "09LD2818": 0.2748,
+        "09LD1846": 0.2435,
+        "09LD1885": 0.2015,
+        "09LD1886": 0.3381,
+        "09LD1897": 0.3335,
+        "09LD2807": 0.2876
+      },
+      "val_pred_voxels": 270170,
+      "last_train_loss": 0.4137
+    },
+    {
+      "epoch": 105,
+      "tile_step": 1050,
+      "val_unobs": {
+        "strict": 0.1845,
+        "mid": 0.1384,
+        "tolerant": 0.1502
+      },
+      "val_comp_iou": 0.2521,
+      "best_prob": 0.3,
+      "train_unobs_strict": null,
+      "val_pred_voxels": 321894,
+      "last_train_loss": 0.3274
+    },
+    {
+      "epoch": 110,
+      "tile_step": 1100,
+      "val_unobs": {
+        "strict": 0.2126,
+        "mid": 0.1577,
+        "tolerant": 0.1641
+      },
+      "val_comp_iou": 0.2903,
+      "best_prob": 0.3,
+      "train_unobs_strict": null,
+      "val_pred_voxels": 432959,
+      "last_train_loss": 0.4866
+    },
+    {
+      "epoch": 115,
+      "tile_step": 1150,
+      "val_unobs": {
+        "strict": 0.182,
+        "mid": 0.1795,
+        "tolerant": 0.1955
+      },
+      "val_comp_iou": 0.2046,
+      "best_prob": 0.3,
+      "train_unobs_strict": null,
+      "val_pred_voxels": 292144,
+      "last_train_loss": 0.4595
+    },
+    {
+      "epoch": 120,
+      "tile_step": 1200,
+      "val_unobs": {
+        "strict": 0.2204,
+        "mid": 0.1572,
+        "tolerant": 0.1642
+      },
+      "val_comp_iou": 0.3024,
+      "best_prob": 0.3,
+      "train_unobs_strict": {
+        "09LD1878": 0.1595,
+        "09LD1845": 0.0672,
+        "09LD1843": 0.2842,
+        "09LD1867": 0.1127,
+        "09LD2818": 0.2833,
+        "09LD1846": 0.2214,
+        "09LD1885": 0.2225,
+        "09LD1886": 0.3689,
+        "09LD1897": 0.3428,
+        "09LD2807": 0.3064
+      },
+      "val_pred_voxels": 527394,
+      "last_train_loss": 0.3213
+    },
+    {
+      "epoch": 125,
+      "tile_step": 1250,
+      "val_unobs": {
+        "strict": 0.2265,
+        "mid": 0.1818,
+        "tolerant": 0.1929
+      },
+      "val_comp_iou": 0.2889,
+      "best_prob": 0.3,
+      "train_unobs_strict": null,
+      "val_pred_voxels": 459399,
+      "last_train_loss": 0.3429
+    },
+    {
+      "epoch": 130,
+      "tile_step": 1300,
+      "val_unobs": {
+        "strict": 0.2095,
+        "mid": 0.1698,
+        "tolerant": 0.18
+      },
+      "val_comp_iou": 0.2744,
+      "best_prob": 0.3,
+      "train_unobs_strict": null,
+      "val_pred_voxels": 402143,
+      "last_train_loss": 0.4987
+    },
+    {
+      "epoch": 135,
+      "tile_step": 1350,
+      "val_unobs": {
+        "strict": 0.1387,
+        "mid": 0.1015,
+        "tolerant": 0.1077
+      },
+      "val_comp_iou": 0.1995,
+      "best_prob": 0.3,
+      "train_unobs_strict": null,
+      "val_pred_voxels": 300588,
+      "last_train_loss": 0.2679
+    },
+    {
+      "epoch": 140,
+      "tile_step": 1400,
+      "val_unobs": {
+        "strict": 0.2378,
+        "mid": 0.1771,
+        "tolerant": 0.1899
+      },
+      "val_comp_iou": 0.3063,
+      "best_prob": 0.3,
+      "train_unobs_strict": {
+        "09LD1878": 0.1883,
+        "09LD1845": 0.1033,
+        "09LD1843": 0.3325,
+        "09LD1867": 0.1777,
+        "09LD2818": 0.3378,
+        "09LD1846": 0.2961,
+        "09LD1885": 0.2323,
+        "09LD1886": 0.3608,
+        "09LD1897": 0.3339,
+        "09LD2807": 0.332
+      },
+      "val_pred_voxels": 475535,
+      "last_train_loss": 0.5783
+    },
+    {
+      "epoch": 145,
+      "tile_step": 1450,
+      "val_unobs": {
+        "strict": 0.2072,
+        "mid": 0.1527,
+        "tolerant": 0.1649
+      },
+      "val_comp_iou": 0.2623,
+      "best_prob": 0.3,
+      "train_unobs_strict": null,
+      "val_pred_voxels": 397371,
+      "last_train_loss": 0.3254
+    },
+    {
+      "epoch": 150,
+      "tile_step": 1500,
+      "val_unobs": {
+        "strict": 0.1625,
+        "mid": 0.1437,
+        "tolerant": 0.1547
+      },
+      "val_comp_iou": 0.2243,
+      "best_prob": 0.3,
+      "train_unobs_strict": null,
+      "val_pred_voxels": 285181,
+      "last_train_loss": 0.5403
+    },
+    {
+      "epoch": 155,
+      "tile_step": 1550,
+      "val_unobs": {
+        "strict": 0.1427,
+        "mid": 0.1424,
+        "tolerant": 0.1594
+      },
+      "val_comp_iou": 0.1612,
+      "best_prob": 0.3,
+      "train_unobs_strict": null,
+      "val_pred_voxels": 199469,
+      "last_train_loss": 0.2819
+    },
+    {
+      "epoch": 160,
+      "tile_step": 1600,
+      "val_unobs": {
+        "strict": 0.1083,
+        "mid": 0.0965,
+        "tolerant": 0.1076
+      },
+      "val_comp_iou": 0.1473,
+      "best_prob": 0.3,
+      "train_unobs_strict": {
+        "09LD1878": 0.2579,
+        "09LD1845": 0.1746,
+        "09LD1843": 0.4256,
+        "09LD1867": 0.2916,
+        "09LD2818": 0.4159,
+        "09LD1846": 0.3519,
+        "09LD1885": 0.2573,
+        "09LD1886": 0.4115,
+        "09LD1897": 0.4214,
+        "09LD2807": 0.3902
+      },
+      "val_pred_voxels": 174317,
+      "last_train_loss": 0.4956
+    },
+    {
+      "epoch": 165,
+      "tile_step": 1650,
+      "val_unobs": {
+        "strict": 0.1843,
+        "mid": 0.1314,
+        "tolerant": 0.139
+      },
+      "val_comp_iou": 0.2528,
+      "best_prob": 0.3,
+      "train_unobs_strict": null,
+      "val_pred_voxels": 368971,
+      "last_train_loss": 0.5529
+    },
+    {
+      "epoch": 170,
+      "tile_step": 1700,
+      "val_unobs": {
+        "strict": 0.0705,
+        "mid": 0.0638,
+        "tolerant": 0.0713
+      },
+      "val_comp_iou": 0.0955,
+      "best_prob": 0.3,
+      "train_unobs_strict": null,
+      "val_pred_voxels": 104125,
+      "last_train_loss": 0.3425
+    },
+    {
+      "epoch": 175,
+      "tile_step": 1750,
+      "val_unobs": {
+        "strict": 0.1032,
+        "mid": 0.077,
+        "tolerant": 0.0804
+      },
+      "val_comp_iou": 0.1603,
+      "best_prob": 0.3,
+      "train_unobs_strict": null,
+      "val_pred_voxels": 208188,
+      "last_train_loss": 0.2909
+    },
+    {
+      "epoch": 180,
+      "tile_step": 1800,
+      "val_unobs": {
+        "strict": 0.0916,
+        "mid": 0.0805,
+        "tolerant": 0.0915
+      },
+      "val_comp_iou": 0.1151,
+      "best_prob": 0.3,
+      "train_unobs_strict": {
+        "09LD1878": 0.2562,
+        "09LD1845": 0.1825,
+        "09LD1843": 0.3812,
+        "09LD1867": 0.2729,
+        "09LD2818": 0.3368,
+        "09LD1846": 0.342,
+        "09LD1885": 0.2225,
+        "09LD1886": 0.3928,
+        "09LD1897": 0.409,
+        "09LD2807": 0.3718
+      },
+      "val_pred_voxels": 145743,
+      "last_train_loss": 0.4371
+    },
+    {
+      "epoch": 185,
+      "tile_step": 1850,
+      "val_unobs": {
+        "strict": 0.0794,
+        "mid": 0.0697,
+        "tolerant": 0.0781
+      },
+      "val_comp_iou": 0.1031,
+      "best_prob": 0.3,
+      "train_unobs_strict": null,
+      "val_pred_voxels": 128366,
+      "last_train_loss": 0.4467
+    },
+    {
+      "epoch": 190,
+      "tile_step": 1900,
+      "val_unobs": {
+        "strict": 0.0802,
+        "mid": 0.0675,
+        "tolerant": 0.076
+      },
+      "val_comp_iou": 0.1067,
+      "best_prob": 0.3,
+      "train_unobs_strict": null,
+      "val_pred_voxels": 124350,
+      "last_train_loss": 0.2693
+    },
+    {
+      "epoch": 195,
+      "tile_step": 1950,
+      "val_unobs": {
+        "strict": 0.1517,
+        "mid": 0.1096,
+        "tolerant": 0.1195
+      },
+      "val_comp_iou": 0.1789,
+      "best_prob": 0.3,
+      "train_unobs_strict": null,
+      "val_pred_voxels": 316492,
+      "last_train_loss": 0.3698
+    },
+    {
+      "epoch": 200,
+      "tile_step": 2000,
+      "val_unobs": {
+        "strict": 0.2983,
+        "mid": 0.1868,
+        "tolerant": 0.1863
+      },
+      "val_comp_iou": 0.4063,
+      "best_prob": 0.7,
+      "train_unobs_strict": {
+        "09LD1878": 0.0799,
+        "09LD1845": 0.0604,
+        "09LD1843": 0.169,
+        "09LD1867": 0.0947,
+        "09LD2818": 0.1956,
+        "09LD1846": 0.2023,
+        "09LD1885": 0.0917,
+        "09LD1886": 0.2619,
+        "09LD1897": 0.3082,
+        "09LD2807": 0.3048
+      },
+      "val_pred_voxels": 935269,
+      "last_train_loss": 0.6006
+    }
+  ]
+}

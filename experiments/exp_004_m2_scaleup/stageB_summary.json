@@ -1,0 +1,43 @@
+{
+  "wd": "1e-3",
+  "b3_strict": 0.165,
+  "fork1_spread": 0.03,
+  "stageA_jitter": 0.06,
+  "seeds": [
+    {
+      "seed": 0,
+      "run": "stageA_wd1e-3",
+      "peak": 0.2938,
+      "peak_step": 250,
+      "post_peak_std": 0.0645,
+      "end": 0.1732,
+      "best_epoch": 25
+    },
+    {
+      "seed": 1,
+      "run": "stageB_wd1e-3_s1",
+      "peak": 0.305,
+      "peak_step": 200,
+      "post_peak_std": 0.0619,
+      "end": 0.1861,
+      "best_epoch": 20
+    },
+    {
+      "seed": 2,
+      "run": "stageB_wd1e-3_s2",
+      "peak": 0.3009,
+      "peak_step": 400,
+      "post_peak_std": 0.0622,
+      "end": 0.038,
+      "best_epoch": 40
+    }
+  ],
+  "cross_seed_peak_spread": 0.0112,
+  "per_seed_post_peak_std": [
+    0.0645,
+    0.0619,
+    0.0622
+  ],
+  "all_peaks_above_b3": true,
+  "implied_outcome": "MIXED"
+}

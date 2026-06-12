@@ -522,3 +522,63 @@ Consequences:
 
 Status:
 Adopted (M2 fork-1 G2). Recorded in the M2 SESSION_LOG (G2 entry).
+
+## 2026-06-13 - M2/exp_004 - Discriminative + fixed-candidate-support route has a confirmed-unstable generalization peak; next step is to evaluate a generative decoder
+
+Context:
+exp_004 was the scale-up round whose **sole objective was stability** (not higher IoU):
+make fork-1's fragile early-stop peak stable by moving exactly two coupled knobs —
+train-tile count (4→10) and weight-decay — with the held-out, eval口径, D10/`z_scale`,
+and architecture all frozen. The premise under test was the **data-diversity hypothesis**:
+"4 tiles can't support a stable optimum; more tiles + regularization will." See
+`experiments/exp_004_m2_scaleup/` and the M2 SESSION_LOG (2026-06-13).
+
+Decision:
+- Record that **after exp_004 the discriminative + fixed-candidate-support route has a
+  CONFIRMED-unstable geometric-generalization peak on the held-out tile.** Across 10 train
+  tiles, a weight-decay sweep over two orders of magnitude, and 3 seeds, the peak-then-
+  collapse + ≈0.06 post-peak jitter **reproduces**. Weight-decay flattens the mean drift
+  but **not** the jitter (post-peak std ≈0.06 identical at wd 1e-4/1e-3/1e-2). The
+  cross-seed peak spread tightened to **0.011**, but that is recorded as **"the early-stop
+  ceiling is reproducible," NOT "generalization is stable"** — max-over-a-noisy-band
+  agreement is necessary, not sufficient, for stability.
+- The **scale-up / data-diversity hypothesis is therefore FALSIFIED**: the instability is
+  **intrinsic to this framework**, not a data-quantity/diversity deficit, and is **not
+  parameter-solvable** (do not chase it with epochs/lr/dropout — out of scope and against
+  the round's one-variable discipline).
+- **Next step: evaluate a generative decoder** (evaluate — not arm). The **authorization
+  basis is two independent signals**: (1) the **recall ceiling 0.758** (a *coverage* cap —
+  target mass outside the candidate support), and (2) **framework-intrinsic peak
+  instability** (the discriminative-on-fixed-support optimum does not settle, shown by the
+  cross-seed × cross-wd reproduction). These are **independent** axes — coverage vs
+  optimization-stability — and the decision rests on **both**, explicitly **NOT** on field
+  trends / single-run cosmetics.
+
+Reason:
+- Two orthogonal, independently-measured signals now point the same way: the support both
+  **cannot contain** ~24% of the target (ceiling 0.758) **and cannot be discriminatively
+  fit to a stable solution** (exp_004 instability). A generative decoder addresses both —
+  it can place mass outside a fixed candidate support and is not tied to the fragile
+  discriminative-within-support optimum — which is why the authorization needs both signals
+  rather than either alone.
+- Recording the instability as a *first-class* authorization signal (not a footnote of the
+  exp_004 SPLIT narrative) keeps the decoder decision anchored to **structural** evidence,
+  matching the project rule that the repo, not chat trends, is the source of truth.
+
+Consequences:
+- M2 fork-1's generalization claim **stands** (held-out clears B3 on strict, now with a
+  reproducible peak), but its long-standing caveat — *"an unstable early-training peak
+  captured by held-out early-stopping, not a stable trained optimum"* — is **confirmed
+  intrinsic**, not an artifact of small K.
+- The generative-decoder branch moves from "gated, dormant" to **"evaluate next,"** gated on
+  the two signals above. Arming it is a separate decision after that evaluation.
+- Methodological guardrail (also in the SESSION_LOG): **do not draw structural conclusions
+  from single-seed noisy curves.** Stage A's single-seed curve led both the executor and the
+  research lead to pre-judge "Outcome 2 / large spread"; Stage B's seeds refuted the spread
+  prediction and decoupled "ceiling reproducible" from "instability solved." Run seeds before
+  naming the phenomenon.
+- Deferrals unchanged: D10/`z_scale` untouched, no class-2 ground integration, no semantics
+  (M3) — none gated on this decision.
+
+Status:
+Adopted (M2, post-exp_004). Generative-decoder *evaluation* authorized; *arming* deferred.

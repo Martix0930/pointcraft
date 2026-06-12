@@ -140,6 +140,9 @@ def train_multi(
     lr: float = 1e-3,
     base: int = 8,
     eval_every: int = 20,
+    eval_every_steps: int | None = None,
+    train_eval_every_steps: int | None = None,
+    weight_decay: float = 0.0,
     border_margin: int = 5,
     z_scale: float = DEFAULT_Z_SCALE,
     prob_thresholds=DEFAULT_PROB_THRESHOLDS,
@@ -148,9 +151,20 @@ def train_multi(
     seed: int = 0,
     log=print,
 ) -> GeneralizeResult:
-    """Train on ``train_npz`` (1 tile/step, shuffled each epoch), eval held-out every
-    ``eval_every`` epochs, keep best-by-held-out. Compact resident arrays + eval-time
-    Sample reload (see module docstring)."""
+    """Train on ``train_npz`` (1 tile/step, shuffled each epoch), keep best-by-held-out.
+    Compact resident arrays + eval-time Sample reload (see module docstring).
+
+    Eval cadence: if ``eval_every_steps`` is set, the held-out is scored every N
+    **tile-steps** (the cross-tile-count-comparable x-axis, exp_004) regardless of epoch
+    boundaries; otherwise it falls back to every ``eval_every`` **epochs** (exp_003 path,
+    unchanged). ``weight_decay`` is Adam L2 (0.0 = exp_003 behaviour).
+
+    ``train_eval_every_steps`` (exp_004 host-RAM discipline): the per-tile **train_iou**
+    diagnostic reloads a full Sample per train tile, the dominant eval-time host-RAM
+    churn at K=10 tiles. When set, train_iou is computed only every N tile-steps; on the
+    other (held-out-only) evals ``train_unobs_strict`` is recorded as ``None``. This does
+    NOT touch the held-out ``val_unobs`` curve, the checkpoint selection, or the verdict —
+    only the cadence of a secondary diagnostic. ``None`` = compute every eval (exp_003)."""
     torch.manual_seed(seed)
     rng = np.random.default_rng(seed)
     logit_thr = [float(np.log(p / (1.0 - p))) for p in prob_thresholds]
@@ -166,7 +180,7 @@ def train_multi(
 
     model = OccupancyCompletionUNet(in_channels=train[0].feats.shape[1], base=base).to(device)
     n_params = sum(p.numel() for p in model.parameters())
-    opt = torch.optim.Adam(model.parameters(), lr=lr)
+    opt = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
     scaler = torch.amp.GradScaler("cuda", enabled=amp)
 
     history: list = []
@@ -177,7 +191,7 @@ def train_multi(
     best_pred = np.zeros((0, 3), dtype=np.int32)
     best_train_iou: dict = {}
 
-    def run_eval(epoch: int, last_loss: float):
+    def run_eval(epoch: int, tile_step: int, last_loss: float):
         nonlocal best_strict, best_res, best_prob, best_epoch, best_pred
         pred, res, prob = _eval_on(model, val, border_margin=border_margin,
                                    prob_thresholds=prob_thresholds, logit_thr=logit_thr,
@@ -185,22 +199,33 @@ def train_multi(
         strict = res["unobserved"]["strict"]["iou"]
         u = {c: round(res["unobserved"][c]["iou"], 4) for c in ("strict", "mid", "tolerant")}
         vt = float(np.log(prob / (1.0 - prob)))
-        train_iou = {}
-        for t in train:
-            _, tr, _ = _eval_on(model, t, border_margin=border_margin,
-                                prob_thresholds=prob_thresholds, logit_thr=logit_thr,
-                                amp=amp, device=device, fixed_threshold=vt)
-            train_iou[t.tile_id] = round(tr["unobserved"]["strict"]["iou"], 4)
-        history.append({"epoch": epoch, "val_unobs": u, "val_comp_iou": round(res["completion"]["iou"], 4),
+        # Per-tile train_iou is the dominant eval-time host-RAM churn (one full-Sample
+        # reload per train tile). Gate it to a coarser cadence when requested; the
+        # held-out curve / checkpoint above are unaffected.
+        do_train = (train_eval_every_steps is None
+                    or tile_step % train_eval_every_steps == 0)
+        train_iou = None
+        if do_train:
+            train_iou = {}
+            for t in train:
+                _, tr, _ = _eval_on(model, t, border_margin=border_margin,
+                                    prob_thresholds=prob_thresholds, logit_thr=logit_thr,
+                                    amp=amp, device=device, fixed_threshold=vt)
+                train_iou[t.tile_id] = round(tr["unobserved"]["strict"]["iou"], 4)
+        history.append({"epoch": epoch, "tile_step": tile_step, "val_unobs": u,
+                        "val_comp_iou": round(res["completion"]["iou"], 4),
                         "best_prob": prob, "train_unobs_strict": train_iou,
                         "val_pred_voxels": int(pred.shape[0]), "last_train_loss": round(last_loss, 4)})
-        log(f"[ep {epoch:4d}] HELD-OUT {val.tile_id} unobs strict/mid/tol "
+        log(f"[ep {epoch:4d} | step {tile_step:5d}] HELD-OUT {val.tile_id} unobs strict/mid/tol "
             f"{u['strict']}/{u['mid']}/{u['tolerant']} @p={prob}  "
             f"(bar B3=0.165, B1=0.146)  train {train_iou}")
         if strict > best_strict:
             best_strict, best_res, best_prob, best_epoch, best_pred = strict, res, prob, epoch, pred
-            best_train_iou.clear(); best_train_iou.update(train_iou)
+            best_train_iou.clear()
+            if train_iou is not None:
+                best_train_iou.update(train_iou)
 
+    tile_step = 0
     for epoch in range(1, epochs + 1):
         model.train()
         order = rng.permutation(len(train))
@@ -220,11 +245,22 @@ def train_multi(
             scaler.step(opt)
             scaler.update()
             last_loss = float(loss.item())
+            tile_step += 1
             del x, y, out, loss
             torch.cuda.empty_cache()
 
-        if epoch % eval_every == 0 or epoch == epochs:
-            run_eval(epoch, last_loss)
+            # exp_004: tile-step-based cadence (mid-epoch eval, cross-K-comparable x-axis)
+            if eval_every_steps and tile_step % eval_every_steps == 0:
+                run_eval(epoch, tile_step, last_loss)
+                model.train()
+
+        # exp_003 path: epoch-based cadence (only when step cadence is off)
+        if eval_every_steps is None and (epoch % eval_every == 0 or epoch == epochs):
+            run_eval(epoch, tile_step, last_loss)
+
+    # ensure a final eval at the last tile-step if step-cadence didn't land on it
+    if eval_every_steps and (not history or history[-1]["tile_step"] != tile_step):
+        run_eval(epochs, tile_step, last_loss)
 
     peak_mb = torch.cuda.max_memory_allocated() / 1e6 if device == "cuda" else 0.0
     return GeneralizeResult(
